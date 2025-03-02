@@ -1,0 +1,16 @@
+application {
+  debug = "true" // true/false
+  fileLocation = ""
+  zoneOffset = 3
+
+  jwt {
+    domain = "localhost" //Domain to create JWT on
+    secret = "D>\\2t_<)`z@@e9yw1[NS2e7U0^3I9NNo" //Secret for jwt generation
+    expiration {
+      seconds = "120" //About 1 minute to expire
+    }
+    refreshExpiration {
+      seconds = "86400" //About 2 days to expire
+    }
+  }
+}

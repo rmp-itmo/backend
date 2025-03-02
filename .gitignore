@@ -1,0 +1,18 @@
+# Ignore Gradle project-specific cache directory
+.gradle
+
+# Ignore Gradle build output directory
+build
+upload
+upload/*
+
+docker
+
+# Ignore Idea
+.idea
+.idea/
+.idea/*
+*.iml
+
+# Ignore Kotlin data directory
+.kotlin

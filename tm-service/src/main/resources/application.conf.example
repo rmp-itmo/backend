@@ -1,0 +1,6 @@
+application {
+  jdbcUrl = "jdbc:postgresql://localhost:5432/test_db"
+  driverClassName = "org.postgresql.Driver"
+  username = "postgres"
+  password = "my-secret-pw"
+}
