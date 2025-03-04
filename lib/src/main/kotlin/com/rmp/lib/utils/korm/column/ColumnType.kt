@@ -1,15 +1,21 @@
 package com.rmp.lib.utils.korm.column
 
+import com.rmp.lib.utils.korm.DbType
+
 abstract class ColumnType <T> (var nullable: Boolean = false) {
     open var isPk: Boolean = false
-    abstract val sqlRepresentationName: String
+    // DB Name -> Type definition
+    abstract val sqlRepresentationName: MutableMap<DbType, String>
     abstract fun readValue(value: Any): T
     abstract fun write(value: T): Any
 }
 
 class IntColumn: ColumnType<Int>() {
-    override val sqlRepresentationName: String
-        get() = "int"
+    override val sqlRepresentationName: MutableMap<DbType, String>
+        get() = mutableMapOf(
+            DbType.PGSQL to "int",
+            DbType.CLICKHOUSE to "Int32"
+        )
 
     override fun readValue(value: Any): Int =
         when (value) {
@@ -23,8 +29,11 @@ class IntColumn: ColumnType<Int>() {
 }
 
 class TextColumn: ColumnType<String>() {
-    override val sqlRepresentationName: String
-        get() = "text"
+    override val sqlRepresentationName: MutableMap<DbType, String>
+        get() = mutableMapOf(
+            DbType.PGSQL to "text",
+            DbType.CLICKHOUSE to "String"
+        )
 
     override fun readValue(value: Any): String =
         when (value) {
@@ -36,8 +45,11 @@ class TextColumn: ColumnType<String>() {
 }
 
 sealed class LongImpl: ColumnType<Long>() {
-    override val sqlRepresentationName: String
-        get() = "bigint"
+    override val sqlRepresentationName: MutableMap<DbType, String>
+        get() = mutableMapOf(
+            DbType.PGSQL to "bigint",
+            DbType.CLICKHOUSE to "Int64"
+        )
 
     override fun readValue(value: Any): Long =
         when (value) {
@@ -53,19 +65,28 @@ sealed class LongImpl: ColumnType<Long>() {
 class LongColumn: LongImpl()
 
 class SerialColumn: LongImpl() {
-    override val sqlRepresentationName: String
-        get() = "bigserial"
+    override val sqlRepresentationName: MutableMap<DbType, String>
+        get() = mutableMapOf(
+            DbType.PGSQL to "bigint",
+            // DbType.CLICKHOUSE not implemented
+        )
 }
 
 class EntityIdColumn: LongImpl() {
     override var isPk: Boolean = true
-    override val sqlRepresentationName: String
-        get() = "bigserial"
+    override val sqlRepresentationName: MutableMap<DbType, String>
+        get() = mutableMapOf(
+            DbType.PGSQL to "bigint"
+            // DbType.CLICKHOUSE not implemented
+        )
 }
 
 class FloatColumn: ColumnType<Float>() {
-    override val sqlRepresentationName: String
-        get() = "float"
+    override val sqlRepresentationName: MutableMap<DbType, String>
+        get() = mutableMapOf(
+            DbType.PGSQL to "float",
+            DbType.CLICKHOUSE to "Float32"
+        )
 
     override fun readValue(value: Any): Float =
         when (value) {
@@ -80,8 +101,11 @@ class FloatColumn: ColumnType<Float>() {
 }
 
 class DoubleColumn: ColumnType<Double>() {
-    override val sqlRepresentationName: String
-        get() = "double"
+    override val sqlRepresentationName: MutableMap<DbType, String>
+        get() = mutableMapOf(
+            DbType.PGSQL to "double",
+            DbType.CLICKHOUSE to "Float64"
+        )
 
     override fun readValue(value: Any): Double =
         when (value) {
@@ -96,8 +120,11 @@ class DoubleColumn: ColumnType<Double>() {
 }
 
 class BoolColumn: ColumnType<Boolean>() {
-    override val sqlRepresentationName: String
-        get() = "bool"
+    override val sqlRepresentationName: MutableMap<DbType, String>
+        get() = mutableMapOf(
+            DbType.PGSQL to "bool",
+            DbType.CLICKHOUSE to "bool"
+        )
 
     override fun readValue(value: Any): Boolean =
         when (value) {

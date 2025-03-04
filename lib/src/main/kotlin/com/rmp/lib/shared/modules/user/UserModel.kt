@@ -1,8 +1,8 @@
 package com.rmp.lib.shared.modules.user
 
-import com.rmp.lib.utils.korm.Table
+import com.rmp.lib.utils.korm.IdTable
 
-object UserModel: Table("user_model") {
+object UserModel: IdTable("user_model") {
     val name = text("name")
 
     val login = text("login")

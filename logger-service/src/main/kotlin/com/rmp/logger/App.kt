@@ -1,8 +1,8 @@
 package com.rmp.logger
 
 import com.rmp.lib.shared.conf.AppConf
-import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.kodein.bindSingleton
+import com.rmp.lib.utils.korm.DbType
 import com.rmp.lib.utils.korm.TableRegister
 import com.rmp.lib.utils.redis.PubSubService
 import com.rmp.lib.utils.redis.RedisEvent
@@ -10,6 +10,7 @@ import com.rmp.lib.utils.redis.RedisSubscriber
 import com.rmp.lib.utils.redis.fsm.FsmRouter
 import com.rmp.lib.utils.redis.subscribe
 import com.rmp.logger.actions.LoggerFsm
+import com.rmp.logger.models.LogModel
 import com.rmp.logger.services.LoggerService
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -30,7 +31,9 @@ fun main(args: Array<String>) {
         }
     }
 
-    TableRegister.register(UserModel)
+    TableRegister.register(DbType.CLICKHOUSE, LogModel)
+
+    ConnectionManager.initTables()
 
     val router by kodein.instance<FsmRouter>()
 

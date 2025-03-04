@@ -1,5 +1,6 @@
 package com.rmp.lib.utils.korm.column
 
+import com.rmp.lib.utils.korm.DbType
 import com.rmp.lib.utils.korm.Table
 
 open class Column <T> (
@@ -17,12 +18,15 @@ open class Column <T> (
             else -> this.toString()
         }
 
+    private fun sqlRepresentationType(dbType: DbType) =
+        type.sqlRepresentationName[dbType] ?: throw Exception("Type $type not implemented for $dbType")
+
     var defaultValue: T? = null
 
-    fun ddl(): String = buildString {
+    fun ddl(dbType: DbType): String = buildString {
         append(name)
         append(" ")
-        append(type.sqlRepresentationName)
+        append(sqlRepresentationType(dbType))
         if (type.nullable) {
             append(" null")
             append(" default ")
