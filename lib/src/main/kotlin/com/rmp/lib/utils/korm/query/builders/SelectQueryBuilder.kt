@@ -1,5 +1,6 @@
 package com.rmp.lib.utils.korm.query.builders
 
+import com.rmp.lib.utils.korm.IdTable
 import com.rmp.lib.utils.korm.Table
 import com.rmp.lib.utils.korm.column.Column
 import com.rmp.lib.utils.korm.query.QueryBuilder
@@ -8,7 +9,7 @@ import com.rmp.lib.utils.korm.query.QueryParseData
 import com.rmp.lib.utils.korm.references.Join
 import com.rmp.lib.utils.korm.references.JoinType
 
-class SelectQueryBuilder(table: Table): QueryBuilder(table) {
+class SelectQueryBuilder<T: Table>(table: T): QueryBuilder(table) {
     init {
         setQuery(StringBuilder().apply {
             append("SELECT ")
@@ -18,21 +19,24 @@ class SelectQueryBuilder(table: Table): QueryBuilder(table) {
     private var selectColumns: MutableList<Column<*>> = mutableListOf()
     private var joins: MutableList<Join<*>> = mutableListOf()
 
-    fun setColumns(columns: List<Column<*>>): SelectQueryBuilder {
+    fun setColumns(columns: List<Column<*>>): SelectQueryBuilder<T> {
         selectColumns = columns.toMutableList()
         return this
     }
 
-    fun where(filter: FilterExpressionBuilder.() -> Unit): SelectQueryBuilder {
+    fun where(filter: FilterExpressionBuilder.() -> Unit): SelectQueryBuilder<T> {
         filterExpression.apply(filter)
         return this
     }
 
-    fun <T: Table> join(
-        target: T,
+    fun <R: IdTable> join(
+        target: R,
         joinType: JoinType = JoinType.LEFT,
         constraints: (FilterExpressionBuilder.() -> Unit)? = null
-    ): SelectQueryBuilder {
+    ): SelectQueryBuilder<T> {
+        if (table !is IdTable) {
+            throw Exception("Try joining with table without id")
+        }
         joins.asReversed().forEach {
             if (it.target.hasRef(target)) {
                 joins += Join(it.target, target, joinType, constraints)

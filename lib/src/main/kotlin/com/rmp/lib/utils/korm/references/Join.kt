@@ -1,12 +1,12 @@
 package com.rmp.lib.utils.korm.references
 
-import com.rmp.lib.utils.korm.Table
+import com.rmp.lib.utils.korm.IdTable
 import com.rmp.lib.utils.korm.query.builders.FilterExpressionBuilder
 import com.rmp.lib.utils.korm.query.QueryBuilder
 import java.sql.SQLException
 
-class Join <T : Table>(
-    val from: Table,
+class Join <T : IdTable>(
+    val from: IdTable,
     val target: T,
     val joinType: JoinType,
     constraint: (FilterExpressionBuilder.() -> Unit)? = null

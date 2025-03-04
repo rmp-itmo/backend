@@ -234,8 +234,9 @@ object TransactionManager {
 
     fun initTables(forceRecreate: Boolean) {
         val connection = ds.connection
-        TableRegister.tables.forEach {
-            executeNoResult(connection, it.value.initTable(forceRecreate = forceRecreate))
+        TableRegister.tables.forEach { (_, entry) ->
+            val (type, table) = entry
+            executeNoResult(connection, table.initTable(dbType = type, forceRecreate = forceRecreate))
         }
         connection.commit()
         connection.close()

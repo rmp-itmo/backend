@@ -3,6 +3,7 @@ package com.rmp.tm
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.kodein.bindSingleton
+import com.rmp.lib.utils.korm.DbType
 import com.rmp.lib.utils.korm.TableRegister
 import com.rmp.lib.utils.korm.query.BatchQuery
 import com.rmp.lib.utils.korm.query.QueryDto
@@ -24,7 +25,7 @@ fun main(args: Array<String>) {
         password = ServiceConf.dbConf.password
     }
 
-    TableRegister.register(UserModel)
+    TableRegister.register(DbType.PGSQL, UserModel)
 
     TransactionManager.initTables(forceRecreate = true)
 
