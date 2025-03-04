@@ -6,7 +6,6 @@ import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.kodein.bindSingleton
 import com.rmp.lib.utils.korm.TableRegister
-import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.redis.PubSubService
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.RedisSubscriber

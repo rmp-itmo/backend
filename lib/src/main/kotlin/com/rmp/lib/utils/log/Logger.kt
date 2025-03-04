@@ -5,7 +5,6 @@ import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.RedisEventState
 import com.rmp.lib.utils.redis.SerializableClass
 import com.rmp.lib.utils.serialization.Json
-import com.rmp.lib.utils.serialization.UltimateSerializer
 import io.github.crackthecodeabhi.kreds.connection.Endpoint
 import io.github.crackthecodeabhi.kreds.connection.newClient
 import kotlinx.coroutines.CoroutineScope

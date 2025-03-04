@@ -1,7 +1,6 @@
 package com.rmp.tm.korm
 
 import com.rmp.lib.utils.korm.RowDto
-import com.rmp.lib.utils.korm.Table
 import com.rmp.lib.utils.korm.TableRegister
 import com.rmp.lib.utils.korm.query.*
 import com.rmp.lib.utils.redis.RedisEvent
@@ -13,8 +12,6 @@ import kotlinx.coroutines.ObsoleteCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.actor
 import java.sql.Connection
-import java.sql.PreparedStatement
-import java.sql.SQLException
 import com.rmp.lib.utils.korm.initTable
 import com.rmp.lib.utils.log.Logger
 

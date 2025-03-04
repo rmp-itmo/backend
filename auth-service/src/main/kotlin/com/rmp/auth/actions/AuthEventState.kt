@@ -1,5 +1,5 @@
 package com.rmp.auth.actions
 
 enum class AuthEventState {
-    INIT, VERIFY, TERMINAL
+    INIT, VERIFY
 }
