@@ -4,11 +4,10 @@ import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import com.auth0.jwt.interfaces.Payload
 import com.rmp.lib.exceptions.ForbiddenException
-import com.rmp.lib.utils.Logger
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.modules.auth.dto.AuthorizedUser
 import com.rmp.lib.shared.modules.auth.dto.RefreshTokenDto
-import kotlinx.serialization.json.Json
+import com.rmp.lib.utils.log.Logger
 import java.util.*
 
 object JwtUtil {
@@ -40,7 +39,7 @@ object JwtUtil {
     )
 
     fun verifyNative(token: String): AuthorizedUser {
-//        Logger.debug("Verify native", "main")
+        Logger.debug("Verify native", "main")
         val jwtVerifier = JWT
             .require(Algorithm.HMAC256(AppConf.jwt.secret))
             .withIssuer(AppConf.jwt.domain)
@@ -50,15 +49,15 @@ object JwtUtil {
         return if (verified != null) {
             val claims = verified.claims
             val currentTime: Long = System.currentTimeMillis() / 1000
-//            Logger.debug(currentTime, "main")
-//            Logger.debug(claims["exp"], "main")
-//            Logger.debug(claims["iss"], "main")
-//            Logger.debug(claims["id"], "main")
-//            Logger.debug(claims["rules"], "main")
+            Logger.debug(currentTime, "main")
+            Logger.debug(claims["exp"], "main")
+            Logger.debug(claims["iss"], "main")
+            Logger.debug(claims["id"], "main")
+            Logger.debug(claims["rules"], "main")
             if (currentTime > (claims["exp"]?.asInt()
                     ?: 0) || claims["iss"]?.asString() != AppConf.jwt.domain
             ) {
-//                Logger.debug("expired exception", "main")
+                Logger.debug("expired exception", "main")
                 throw ForbiddenException()
             }
             else {
@@ -67,7 +66,7 @@ object JwtUtil {
                 )
             }
         } else {
-//            Logger.debug("verified exception", "main")
+            Logger.debug("verified exception", "main")
             throw ForbiddenException()
         }
     }

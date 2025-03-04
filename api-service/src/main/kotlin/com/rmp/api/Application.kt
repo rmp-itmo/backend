@@ -10,17 +10,10 @@ import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.RedisSubscriber
 import com.rmp.lib.utils.redis.subscribe
-import com.rmp.lib.utils.serialization.Json
-import io.github.crackthecodeabhi.kreds.connection.AbstractKredsSubscriber
-import io.github.crackthecodeabhi.kreds.connection.Endpoint
-import io.github.crackthecodeabhi.kreds.connection.newSubscriberClient
-import io.github.crackthecodeabhi.kreds.connection.shutdown
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.kodein.di.DI
 import org.kodein.di.instance

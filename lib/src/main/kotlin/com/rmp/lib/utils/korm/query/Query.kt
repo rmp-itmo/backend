@@ -4,6 +4,9 @@ import com.rmp.lib.utils.korm.RowDto
 import com.rmp.lib.utils.redis.SerializableClass
 import com.rmp.lib.utils.serialization.UltimateSerializer
 import kotlinx.serialization.Serializable
+import java.sql.Connection
+import java.sql.PreparedStatement
+import java.sql.SQLException
 
 sealed class Query: SerializableClass
 
@@ -77,3 +80,25 @@ class CommitQueryDto: QueryDto(QueryType.COMMIT.value, "", listOf())
 
 @Serializable
 class RollbackQueryDto: QueryDto(QueryType.ROLLBACK.value, "", listOf())
+
+fun QueryDto.prepare(connection: Connection): PreparedStatement {
+    val stmt = connection.prepareStatement(sql)
+    params.forEachIndexed { index, param ->
+        if (param == null) {
+            stmt.setObject(index + 1, null)
+            return@forEachIndexed
+        }
+
+        when(param) {
+            is Int -> stmt.setInt(index + 1, param)
+            is Long -> stmt.setLong(index + 1, param)
+            is String -> stmt.setString(index + 1, param)
+            is Boolean -> stmt.setBoolean(index + 1, param)
+            is Float -> stmt.setFloat(index + 1, param)
+            is Double -> stmt.setDouble(index + 1, param)
+            else -> throw SQLException("Unknown param type $param")
+        }
+    }
+
+    return stmt
+}

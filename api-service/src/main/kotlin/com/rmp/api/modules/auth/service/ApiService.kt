@@ -46,7 +46,7 @@ class ApiService(di: DI): PubSubService(AppConf.redis.api, di) {
 
     suspend fun process(eventType: String, data: String, to: String): CompletableDeferred<String> {
         val action = "${System.currentTimeMillis()}-$eventType"
-        val redisEvent = RedisEvent(action, AppConf.redis.api, eventType, RedisEventState("INIT"), data)
+        val redisEvent = RedisEvent(action, AppConf.redis.api, eventType, RedisEventState(RedisEventState.State.INIT), data)
 
         val result = CompletableDeferred<String>()
 

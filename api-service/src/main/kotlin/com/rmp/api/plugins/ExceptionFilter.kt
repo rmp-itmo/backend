@@ -9,7 +9,6 @@ import io.ktor.server.response.*
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.exceptions.BaseException
 import com.rmp.lib.exceptions.InternalServerException
-import com.rmp.lib.utils.Logger
 import com.rmp.lib.exceptions.BadRequestException as BadRequestExceptionLocal
 import io.ktor.server.plugins.BadRequestException as BadRequestExceptionKtor
 

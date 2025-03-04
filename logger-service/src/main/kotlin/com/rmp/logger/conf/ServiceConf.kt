@@ -1,4 +1,4 @@
-package com.rmp.tm.conf
+package com.rmp.logger.conf
 
 import com.typesafe.config.ConfigFactory
 import io.github.config4k.extract

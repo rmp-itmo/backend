@@ -1,0 +1,12 @@
+application {
+  loggerConf {
+    serviceName = "logger-manager"
+  }
+
+  dbConf {
+    jdbcUrl = "jdbc:clickhouse://localhost:8123/logs"
+    driverClassName = "com.clickhouse.jdbc.ClickHouseDriver"
+    username = "clickhouse"
+    password = "my-secret-pw"
+  }
+}

@@ -28,8 +28,6 @@ fun main(args: Array<String>) {
 
     TransactionManager.initTables(forceRecreate = true)
 
-    println(TableRegister.tables)
-
     val kodein = DI {
         bindSingleton { PubSubService(AppConf.redis.db, it) }
     }
@@ -42,18 +40,13 @@ fun main(args: Array<String>) {
                         throw Exception("Unknown event in $channel ($message)")
                     }
 
-                    println(redisEvent)
-
                     val tryDecode = redisEvent.parseData<QueryDto>() ?: redisEvent.parseData<BatchQuery>()
-
-                    println(tryDecode)
 
                     if (tryDecode == null) return
 
                     launch {
                         when (tryDecode) {
                             is BatchQuery -> {
-                                println("New batch query: $tryDecode")
                                 TransactionManager.databaseActor.send(
                                     TransactionManager.QueryEvent.BatchQueryEvent(
                                         tryDecode,
@@ -63,7 +56,6 @@ fun main(args: Array<String>) {
                             }
 
                             is QueryDto -> {
-                                println("New single query: $tryDecode")
                                 TransactionManager.databaseActor.send(
                                     TransactionManager.QueryEvent.SingleQueryEvent(
                                         tryDecode,

@@ -1,7 +1,5 @@
-package com.rmp.auth
+package com.rmp.logger
 
-import com.rmp.auth.actions.AuthFsm
-import com.rmp.auth.services.AuthService
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.kodein.bindSingleton
@@ -11,6 +9,8 @@ import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.RedisSubscriber
 import com.rmp.lib.utils.redis.fsm.FsmRouter
 import com.rmp.lib.utils.redis.subscribe
+import com.rmp.logger.actions.LoggerFsm
+import com.rmp.logger.services.LoggerService
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -18,13 +18,14 @@ import org.kodein.di.DI
 import org.kodein.di.instance
 
 fun main(args: Array<String>) {
+
     val kodein = DI {
         bindSingleton { PubSubService(AppConf.redis.auth, it) }
-        bindSingleton { AuthService(it) }
+        bindSingleton { LoggerService(it) }
 
         bindSingleton {
             FsmRouter.routing(it) {
-                fsm(AuthFsm("auth", it))
+                fsm(LoggerFsm("log", it))
             }
         }
     }
@@ -45,7 +46,7 @@ fun main(args: Array<String>) {
                         router.process(redisEvent)
                     }
                 }
-            }, true, AppConf.redis.auth)
+            }, true, AppConf.redis.logger)
         }
     }
 }

@@ -3,6 +3,7 @@ package com.rmp.lib.utils.redis
 import com.rmp.lib.utils.korm.Row
 import com.rmp.lib.utils.korm.TableRegister
 import com.rmp.lib.utils.korm.query.QueryResult
+import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.serialization.Json
 import kotlinx.serialization.Serializable
 
@@ -33,20 +34,22 @@ data class RedisEvent (
 
     inline fun <reified T: SerializableClass> mutateState(newState: Enum<*>, newStateData: T) = eventState.mutate(newState.name, newStateData)
 
-    inline fun <reified T: SerializableClass> parseData(): T? =
+    inline fun <reified T: SerializableClass> parseData(silent: Boolean = false): T? =
         try {
             Json.serializer.decodeFromString<T>(data)
         } catch (e: Exception) {
-            println(e)
+            if (!silent)
+                Logger.debugException("Data parsing failed for event $this", e, "main")
             null
         }
 
-    inline fun <reified T: SerializableClass> parseState(): T? =
+    inline fun <reified T: SerializableClass> parseState(silent: Boolean = false): T? =
         if (eventState.stateData != null)
             try {
                 Json.serializer.decodeFromString<T>(eventState.stateData)
             } catch (e: Exception) {
-                println(e)
+                if (!silent)
+                    Logger.debugException("State parsing failed for event $this", e, "main")
                 null
             }
         else null

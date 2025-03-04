@@ -14,7 +14,6 @@ object TableRegister {
     }
 
     fun findColumns(tableName: String, columns: List<String>): List<Column<*>> {
-        println(tables)
         val table = tables[tableName] ?: throw Exception("Unknown model $tableName")
 
         return columns.mapNotNull {

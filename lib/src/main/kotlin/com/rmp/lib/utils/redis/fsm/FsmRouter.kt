@@ -1,5 +1,6 @@
 package com.rmp.lib.utils.redis.fsm
 
+import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.redis.RedisEvent
 import org.kodein.di.DI
 import org.kodein.di.DIAware
@@ -26,6 +27,9 @@ class FsmRouter(override val di: DI) : DIAware {
 
     suspend fun process(event: RedisEvent) {
         val fsm = routes[event.eventType] ?: throw Exception("Unknown event type: ${event.eventType}")
+
+        Logger.traceEventReceived(event)
+
         fsm.process(event)
     }
 }
