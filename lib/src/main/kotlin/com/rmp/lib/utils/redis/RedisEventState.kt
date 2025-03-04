@@ -8,7 +8,14 @@ data class RedisEventState (
     val state: String,
     val stateData: String? = null
 ) {
-    fun mutate(newState: Enum<*>) = RedisEventState(newState.name, stateData)
+
+    constructor(state: Enum<*>, stateData: String? = null) : this(state.name, stateData)
+
+    enum class State {
+        INIT, TERMINAL
+    }
+
+    fun mutate(newState: Enum<*>) = RedisEventState(newState, stateData)
 
     inline fun <reified T: SerializableClass> mutate(newStateData: T) = RedisEventState(state, Json.serializer.encodeToString(newStateData))
 

@@ -1,3 +1,5 @@
+import gradle.kotlin.dsl.accessors._2c3af771d8bff67d86217fd21a9af7e3.implementation
+
 val kotlinVersion: String by project
 val kotlinxCoroutinesVersion: String by project
 val kotlinxSerializationVersion: String by project
@@ -55,6 +57,8 @@ dependencies {
     implementation("io.github.crackthecodeabhi:kreds:$kredsVersion")
 
     implementation("org.reflections:reflections:0.9.12")
+
+    implementation("redis.clients:jedis:5.2.0")
 }
 
 

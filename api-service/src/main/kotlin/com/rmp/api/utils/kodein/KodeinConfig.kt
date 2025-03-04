@@ -1,10 +1,9 @@
 package com.rmp.api.utils.kodein
 
-import com.rmp.api.modules.auth.service.ApiService
+import com.rmp.lib.utils.log.Logger
 import io.ktor.server.application.*
 import io.ktor.server.routing.*
 import org.kodein.type.jvmType
-import com.rmp.lib.utils.Logger
 import org.kodein.di.*
 
 inline fun <reified T : Any> DI.MainBuilder.bindSingleton(crossinline callback: (DI) -> T) {
@@ -21,7 +20,7 @@ fun Application.regKodein(
                 val bindClass = bind.key.type.jvmType as? Class<*>?
                 if (bindClass != null && KodeinController::class.java.isAssignableFrom(bindClass)) {
                     val res by kodein.Instance(bind.key.type)
-//                    Logger.debug("Registering '$res' routes...", "info")
+                    Logger.debug("Registering '$res' routes...", "info")
                     (res as KodeinController).apply { this@route.registerRoutes() }
                 }
             }

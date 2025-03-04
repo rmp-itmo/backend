@@ -17,6 +17,6 @@ application {
     db = "db-channel"
     api = "api-channel"
     auth = "auth-channel"
-
+    logger = "logger-channel"
   }
 }

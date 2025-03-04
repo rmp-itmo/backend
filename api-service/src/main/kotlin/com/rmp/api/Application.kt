@@ -7,6 +7,7 @@ import com.rmp.api.plugins.*
 import com.rmp.api.utils.kodein.bindSingleton
 import com.rmp.api.utils.kodein.regKodein
 import com.rmp.lib.shared.conf.AppConf
+import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.RedisSubscriber
 import com.rmp.lib.utils.redis.subscribe

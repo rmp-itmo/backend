@@ -15,4 +15,6 @@ object AppConf {
     val jwt: JwtConf = mainConfig.extract<JwtConf>("application.jwt")
 
     val redis: RedisConf = mainConfig.extract<RedisConf>("application.redis")
+
+    val logger: LoggerConf = mainConfig.extract<LoggerConf>("application.loggerConf")
 }

@@ -1,6 +1,7 @@
 package com.rmp.lib.utils.serialization
 
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
@@ -21,6 +22,7 @@ class UltimateSerializer : KSerializer<Any?> {
             is String -> JsonPrimitive(value)
             is Iterable<*> -> JsonArray(value.map { anyToJsonElement(it) })
             is Map<*, *> -> JsonObject(value.map { it.key.toString() to anyToJsonElement(it.value) }.toMap())
+            is Serializable -> Json.serializer.encodeToJsonElement(value)
             else -> throw Exception("Not implemented type ${value::class}=${value}}")
         }
     }

@@ -16,6 +16,7 @@ import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.SQLException
 import com.rmp.lib.utils.korm.initTable
+import com.rmp.lib.utils.log.Logger
 
 object TransactionManager {
     private lateinit var ds: HikariDataSource
@@ -45,8 +46,8 @@ object TransactionManager {
                         name = tid
                         connection = conn
 
-                        println("${query.queryType} ${query.sql} ${query.params}")
-                        println("Result: $executionResult")
+                        Logger.debug("${query.queryType} ${query.sql} ${query.params}", "database")
+                        Logger.debug("Result: $executionResult", "database")
 
                         if (executionResult == null) null
                         else label to executionResult
@@ -59,6 +60,8 @@ object TransactionManager {
                     // все равно создалось, в этом случае его надо убить.
                     if (lastCommitOrRollback && name != null && connection != null) {
                         commit(name!!, connection!!)
+                        name = null
+                        connection = null
                     }
                     // Обратная ситуация, когда мы не остановились на коммите (или даже если их вообще не было и мы работали в одном контексте)
                     // Следует дописать в active текущее подключение, чтобы пользователю не улетел tid которого на самом деле нет.
@@ -112,12 +115,12 @@ object TransactionManager {
                 val conn = if (connectionName == null) {
                     if (connection != null) {
                         // ОЧЕНЬ ВАЖНЫЙ ЛОГ!
-                        println("CLOSE TEMP-CONNECTION! $connection")
+                        Logger.debug("CLOSE TEMP-CONNECTION! $connection", "database")
                         connection.commit()
                         connection.close()
                     }
                     val newConnection = ds.connection
-                    println("OPEN NEW CONNECTION $newConnection")
+                    Logger.debug("OPEN NEW CONNECTION $newConnection", "database")
                     val new = Pair("tid-${System.nanoTime()}", newConnection)
                     active += new
                     new
@@ -129,8 +132,6 @@ object TransactionManager {
             }
 
             QueryType.SELECT.value -> {
-                println(connectionName)
-                println(connection)
                 if (connection == null) return Triple(null, null, null)
                 Triple(
                     connectionName,
@@ -186,7 +187,7 @@ object TransactionManager {
     }
 
     private fun commit(name: String, connection: Connection): List<RowDto> {
-        println("COMMIT AND CLOSE THE CONNECTION $connection")
+        Logger.debug("COMMIT AND CLOSE THE CONNECTION $connection", "database")
         connection.commit()
         connection.close()
         active.remove(name)
@@ -195,7 +196,7 @@ object TransactionManager {
     }
 
     private fun rollback(name: String, connection: Connection): List<RowDto> {
-        println("ROLLBACK AND CLOSE THE CONNECTION $connection")
+        Logger.debug("ROLLBACK AND CLOSE THE CONNECTION $connection", "database")
         connection.rollback()
         connection.close()
         active.remove(name)
@@ -203,37 +204,10 @@ object TransactionManager {
         return listOf(RowDto(mutableMapOf("result" to ResultPlaceholder.ROLLEDBACK.value)))
     }
 
-    private fun prepare(connection: Connection, query: QueryDto): PreparedStatement {
-        val stmt = connection.prepareStatement(query.sql)
-        query.params.forEachIndexed { index, param ->
-            if (param == null) {
-                stmt.setObject(index + 1, null)
-                return@forEachIndexed
-            }
-
-            when(param) {
-                is Int -> stmt.setInt(index + 1, param)
-                is Long -> stmt.setLong(index + 1, param)
-                is String -> stmt.setString(index + 1, param)
-                is Boolean -> stmt.setBoolean(index + 1, param)
-                is Float -> stmt.setFloat(index + 1, param)
-                is Double -> stmt.setDouble(index + 1, param)
-                else -> throw SQLException("Unknown param type $param")
-            }
-        }
-
-        println("On execute: $stmt")
-//        println(queryBuilder.getQuery())
-//        println(queryBuilder.getParams())
-//        println(stmt.connection)
-        return stmt
-    }
-
     private fun execute(connection: Connection, query: QueryDto, columns: List<String>): List<RowDto> {
         val start = System.currentTimeMillis()
-        println("Execution started: $start")
 
-        val stmt = prepare(connection, query)
+        val stmt = query.prepare(connection)
 
         val rs = stmt.executeQuery()
 
@@ -242,13 +216,13 @@ object TransactionManager {
             result += RowDto.build(rs, columns)
         }
 
-        println("Execution finished ${System.currentTimeMillis() - start}")
+        Logger.debug("Execution time: ${System.currentTimeMillis() - start} (${query.sql})", "database")
 
         return result
     }
 
     private fun executeNoResult(connection: Connection, query: QueryDto): List<RowDto> {
-        val stmt = prepare(connection, query)
+        val stmt = query.prepare(connection)
 
         val result = stmt.executeUpdate()
 

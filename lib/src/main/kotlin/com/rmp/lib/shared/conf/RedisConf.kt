@@ -7,4 +7,5 @@ data class RedisConf (
     val db: String,
     val api: String,
     val auth: String,
+    val logger: String,
 )
