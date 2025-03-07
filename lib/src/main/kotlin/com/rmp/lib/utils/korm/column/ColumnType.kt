@@ -67,7 +67,7 @@ class LongColumn: LongImpl()
 class SerialColumn: LongImpl() {
     override val sqlRepresentationName: MutableMap<DbType, String>
         get() = mutableMapOf(
-            DbType.PGSQL to "bigint",
+            DbType.PGSQL to "bigserial",
             // DbType.CLICKHOUSE not implemented
         )
 }
@@ -76,7 +76,7 @@ class EntityIdColumn: LongImpl() {
     override var isPk: Boolean = true
     override val sqlRepresentationName: MutableMap<DbType, String>
         get() = mutableMapOf(
-            DbType.PGSQL to "bigint"
+            DbType.PGSQL to "bigserial"
             // DbType.CLICKHOUSE not implemented
         )
 }

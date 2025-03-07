@@ -41,7 +41,7 @@ fun main(args: Array<String>) {
                         throw Exception("Unknown event in $channel ($message)")
                     }
 
-                    val tryDecode = redisEvent.parseData<QueryDto>() ?: redisEvent.parseData<BatchQuery>()
+                    val tryDecode = redisEvent.parseData<QueryDto>(silent = true) ?: redisEvent.parseData<BatchQuery>()
 
                     if (tryDecode == null) return
 

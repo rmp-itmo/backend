@@ -3,7 +3,7 @@ package com.rmp.lib.utils.korm
 import com.rmp.lib.utils.korm.column.Column
 import java.sql.ResultSet
 
-class Row {
+class Row private constructor() {
     private val data: MutableMap<Column<*>, Any?> = mutableMapOf()
     private val updated: MutableSet<Column<*>> = mutableSetOf()
 
@@ -20,6 +20,10 @@ class Row {
         get() = updatedColumns.map { data[it] }
 
     companion object {
+        fun apply(row: Row.() -> Unit): Row {
+            return Row().apply(row)
+        }
+
         fun build(rs: ResultSet, columns: List<Column<*>>): Row {
             val row = Row()
             columns.forEachIndexed { index, column ->
