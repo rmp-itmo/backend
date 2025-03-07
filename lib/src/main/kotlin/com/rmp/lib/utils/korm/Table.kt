@@ -3,6 +3,7 @@ package com.rmp.lib.utils.korm
 import com.rmp.lib.utils.korm.column.*
 import com.rmp.lib.utils.korm.query.*
 import com.rmp.lib.utils.korm.query.builders.*
+import com.rmp.lib.utils.korm.query.builders.filter.Operator
 
 
 open class Table(val tableName_: String) {
@@ -49,14 +50,14 @@ open class Table(val tableName_: String) {
     fun select(vararg columns: Column<*>): SelectQueryBuilder<*> =
         SelectQueryBuilder(this).setColumns(columns.toList())
 
-    fun update(filter: FilterExpressionBuilder.() -> Unit, row: Row.() -> Unit) =
+    fun update(filter: Operator, row: Row.() -> Unit) =
         UpdateQueryBuilder(this).apply {
-            filterExpression.apply(filter)
+            filterExpression = filter
         }.execute(Row.apply(row))
 
-    fun delete(filter: FilterExpressionBuilder.() -> Unit) =
+    fun delete(filter: Operator) =
         DeleteQueryBuilder(this).apply {
-            filterExpression.apply(filter)
+            filterExpression = filter
         }.execute()
 }
 
