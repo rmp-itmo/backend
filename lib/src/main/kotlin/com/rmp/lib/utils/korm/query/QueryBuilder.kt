@@ -1,12 +1,12 @@
 package com.rmp.lib.utils.korm.query
 
 import com.rmp.lib.utils.korm.Table
-import com.rmp.lib.utils.korm.query.builders.FilterExpressionBuilder
+import com.rmp.lib.utils.korm.query.builders.filter.Operator
 
 abstract class QueryBuilder(val table: Table) {
     private val params: MutableList<Any?> = mutableListOf()
     private var query: StringBuilder = StringBuilder()
-    val filterExpression: FilterExpressionBuilder = FilterExpressionBuilder()
+    var filterExpression: Operator? = null
 
     fun getQuery(): String {
         return query.toString()
@@ -29,9 +29,10 @@ abstract class QueryBuilder(val table: Table) {
     }
 
     protected fun loadExpressionFilter() {
-        if (!filterExpression.empty) {
+        if (filterExpression != null) {
+            val (expression, params) = filterExpression!!.buildExpression()
             append(" WHERE ")
-            append(filterExpression.expressions.joinToString(" "), filterExpression.params)
+            append(expression, params)
         }
     }
 }

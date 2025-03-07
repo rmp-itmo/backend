@@ -8,20 +8,35 @@ import com.rmp.lib.utils.korm.query.QueryDto
 import com.rmp.lib.utils.korm.query.QueryType
 
 class InsertQueryBuilder(table: Table) : QueryBuilder(table) {
-    fun execute(row: Row): QueryDto {
-        append("insert into ")
+    private fun addBasePart(row: Row) {
         append(table.tableName_)
         append("(")
         append(row.columns.joinToString(",") { it.name })
-        append(") values (")
+        append(") values ")
+    }
+
+    private fun generateQueryDto() =
+        if (table is IdTable)
+            QueryDto.executeQuery(QueryType.INSERT, getQuery(), getParams(), mutableMapOf(table.tableName_ to mutableListOf(table.id.name)))
+        else
+            QueryDto.executeQuery(QueryType.INSERT, getQuery(), getParams(), mutableMapOf(table.tableName_ to mutableListOf()))
+
+    fun execute(row: Row): QueryDto {
+        addBasePart(row)
+        append("(")
         append(row.columns.joinToString(",") {
             "?"
         }, row.values)
         append(")")
+        return generateQueryDto()
+    }
 
-        return if (table is IdTable)
-            QueryDto.executeQuery(QueryType.INSERT, getQuery(), getParams(), mutableMapOf(table.tableName_ to mutableListOf(table.id.name)))
-        else
-            QueryDto.executeQuery(QueryType.INSERT, getQuery(), getParams(), mutableMapOf(table.tableName_ to mutableListOf()))
+    fun execute(rows: List<Row>): QueryDto {
+        if (rows.isEmpty()) return QueryDto.executeQuery(QueryType.INSERT, "")
+        addBasePart(rows.first())
+        val placeholder = rows.first().columns.joinToString(",") { "?" }
+        append(rows.joinToString(",") { "($placeholder)" }, rows.map { it.values }.flatten())
+
+        return generateQueryDto()
     }
 }

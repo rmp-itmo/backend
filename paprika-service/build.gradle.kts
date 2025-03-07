@@ -7,6 +7,7 @@ version = "0.0.1"
 
 dependencies {
     implementation(project(":lib"))
+    implementation("com.google.ortools:ortools-java:9.7.2996")
 }
 
 application {

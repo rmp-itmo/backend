@@ -3,6 +3,7 @@ package com.rmp.lib.utils.korm
 import com.rmp.lib.utils.korm.column.*
 import com.rmp.lib.utils.korm.query.*
 import com.rmp.lib.utils.korm.query.builders.*
+import com.rmp.lib.utils.korm.query.builders.filter.Operator
 
 
 open class Table(val tableName_: String) {
@@ -49,18 +50,25 @@ open class Table(val tableName_: String) {
     fun select(vararg columns: Column<*>): SelectQueryBuilder<*> =
         SelectQueryBuilder(this).setColumns(columns.toList())
 
-    fun update(filter: FilterExpressionBuilder.() -> Unit, row: Row.() -> Unit) =
+    fun update(filter: Operator, row: Row.() -> Unit) =
         UpdateQueryBuilder(this).apply {
-            filterExpression.apply(filter)
-        }.execute(Row.apply(row))
+            filterExpression = filter
+        }.execute(Row.build(row))
 
-    fun delete(filter: FilterExpressionBuilder.() -> Unit) =
+    fun delete(filter: Operator) =
         DeleteQueryBuilder(this).apply {
-            filterExpression.apply(filter)
+            filterExpression = filter
         }.execute()
+
+    fun <T> batchInsert(collection: Collection<T>, processor: Row.(item: T) -> Unit): QueryDto =
+        InsertQueryBuilder(this).execute(collection.map {
+            val row = Row.build{}
+            processor.invoke(row, it)
+            row
+        })
 }
 
 fun <T: Table> T.insert(create: T.(row: Row) -> Unit): QueryDto =
-    InsertQueryBuilder(this).execute(Row.apply {
+    InsertQueryBuilder(this).execute(Row.build {
         create(this)
     })

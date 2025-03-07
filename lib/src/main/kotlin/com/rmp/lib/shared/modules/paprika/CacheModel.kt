@@ -1,6 +1,6 @@
 package com.rmp.lib.shared.modules.paprika
 
-import com.rmp.lib.shared.modules.dish.DishType
+import com.rmp.lib.shared.modules.dish.DishTypeModel
 import com.rmp.lib.utils.korm.IdTable
 
 object CacheModel: IdTable("paprika_cache") {
@@ -12,7 +12,7 @@ object CacheModel: IdTable("paprika_cache") {
 
     //Eating options
     val size = double("size")
-    val type = reference("type", DishType)
+    val type = reference("type", DishTypeModel)
     val dishCount = int("dish_count")
 
     //System fields

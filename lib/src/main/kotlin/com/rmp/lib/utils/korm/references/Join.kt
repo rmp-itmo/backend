@@ -1,25 +1,23 @@
 package com.rmp.lib.utils.korm.references
 
 import com.rmp.lib.utils.korm.IdTable
-import com.rmp.lib.utils.korm.query.builders.FilterExpressionBuilder
+import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.query.QueryBuilder
+import com.rmp.lib.utils.korm.query.builders.filter.Operator
 import java.sql.SQLException
 
 class Join <T : IdTable>(
     val from: IdTable,
     val target: T,
     val joinType: JoinType,
-    constraint: (FilterExpressionBuilder.() -> Unit)? = null
+    val constraints: Operator? = null
 ) {
-    val expressionBuilder by lazy {
-        FilterExpressionBuilder().apply(
-            if (constraint == null) {
-                val ref = from.references[target]?.firstOrNull() ?: throw SQLException("No reference found for $target in $from");
-                {
-                    ref.sourceColumn eq ref.targetTable.id
-                }
-            } else constraint
-        )
+
+    val constraint by lazy {
+        (if (constraints == null) {
+            val ref = from.references[target]?.firstOrNull() ?: throw SQLException("No reference found for $target in $from")
+            ref.sourceColumn eq ref.targetTable.id
+        } else constraints).buildExpression()
     }
 
     fun buildSql(queryBuilder: QueryBuilder): Unit = with(queryBuilder) {
@@ -39,6 +37,8 @@ class Join <T : IdTable>(
 
         append(" ON ")
 
-        append(expressionBuilder.expressions.joinToString(" "), expressionBuilder.params)
+        val (expression, params) = constraint
+
+        append(expression, params)
     }
 }

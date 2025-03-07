@@ -12,5 +12,5 @@ object DishModel: IdTable("dish") {
     val fat = double("fat")
     val carbohydrates = double("carbohydrates")
     val cookTime = int("cook_time")
-    val type = reference("type", DishType)
+    val type = reference("type", DishTypeModel)
 }
