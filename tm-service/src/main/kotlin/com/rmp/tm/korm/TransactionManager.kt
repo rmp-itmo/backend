@@ -1,5 +1,6 @@
 package com.rmp.tm.korm
 
+import com.rmp.lib.utils.korm.Row
 import com.rmp.lib.utils.korm.RowDto
 import com.rmp.lib.utils.korm.TableRegister
 import com.rmp.lib.utils.korm.query.*
@@ -32,19 +33,20 @@ object TransactionManager {
         for (e in this) {
             when (e) {
                 is QueryEvent.BatchQueryEvent -> {
-                    var (name, connection) = getConnection(e.redisEvent.tid)
+                    var (connectionName, connection) = getConnection(e.redisEvent.tid)
                     var lastCommitOrRollback = false
 
                     val executionResult = e.query.queries.mapNotNull { (label, query) ->
                         lastCommitOrRollback = (query.queryType == QueryType.COMMIT.value || query.queryType == QueryType.ROLLBACK.value)
 
-                        val (tid, conn, executionResult) = processSingleQuery(name, connection, query)
+                        Logger.debug("[${QueryType.getByValue(query.queryType)}] ${query.sql} ${query.params}, TID=$connectionName, Conn=$connection", "database")
 
-                        name = tid
+                        val (tid, conn, executionResult) = processSingleQuery(connectionName, connection, query)
+
+                        connectionName = tid
                         connection = conn
 
-                        Logger.debug("${query.queryType} ${query.sql} ${query.params}", "database")
-                        Logger.debug("Result: $executionResult", "database")
+                        Logger.debug("Result: $executionResult; \n CurTid=$tid \n CurConn=$conn", "database")
 
                         if (executionResult == null) null
                         else label to executionResult
@@ -55,20 +57,20 @@ object TransactionManager {
                     // в ручную инициализировать подключение
                     // Из-за такого поведения, может возникнуть ситуация, когда commit стоит последним, но временное подключение
                     // все равно создалось, в этом случае его надо убить.
-                    if (lastCommitOrRollback && name != null && connection != null) {
-                        commit(name!!, connection!!)
-                        name = null
+                    if (lastCommitOrRollback && connectionName != null && connection != null) {
+                        commit(connectionName!!, connection!!)
+                        connectionName = null
                         connection = null
                     }
                     // Обратная ситуация, когда мы не остановились на коммите (или даже если их вообще не было и мы работали в одном контексте)
                     // Следует дописать в active текущее подключение, чтобы пользователю не улетел tid которого на самом деле нет.
-                    else if (!lastCommitOrRollback && name != null && connection != null) {
-                        active += Pair(name!!, connection!!)
+                    else if (!lastCommitOrRollback && connectionName != null && connection != null) {
+                        active += Pair(connectionName!!, connection!!)
                     }
 
                     if (executionResult.isNotEmpty())
                         processedChannel.send(Pair(e.redisEvent, QueryResult(
-                            name,
+                            connectionName,
                             executionResult
                         )))
                 }
@@ -105,8 +107,8 @@ object TransactionManager {
     }
 
     private fun processSingleQuery(connectionName: String?, connection: Connection?, query: QueryDto): Triple<String?, Connection?, ExecutionResult?> {
-        return when (query.queryType) {
-            QueryType.INIT.value -> {
+        return when (QueryType.getByValue(query.queryType)) {
+            QueryType.INIT -> {
                 val result = listOf(RowDto(mutableMapOf("result" to ResultPlaceholder.INITIALIZED.value)))
 
                 val conn = if (connectionName == null) {
@@ -128,7 +130,7 @@ object TransactionManager {
                 Triple(conn.first, conn.second, ExecutionResult(mutableMapOf(), result))
             }
 
-            QueryType.SELECT.value -> {
+            QueryType.SELECT, QueryType.INSERT -> {
                 if (connection == null) return Triple(null, null, null)
                 Triple(
                     connectionName,
@@ -138,13 +140,13 @@ object TransactionManager {
                         execute(
                             connection,
                             query,
-                            query.queryParseData?.values?.flatten() ?: listOf()
+                            query.queryParseData?.values?.flatten() ?: listOf(),
+                            query.queryType == QueryType.INSERT.value
                         )
                     )
                 )
             }
-
-            QueryType.UPDATE.value or QueryType.DELETE.value or QueryType.INSERT.value -> {
+            QueryType.UPDATE, QueryType.DELETE -> {
                 if (connection == null) return Triple(null, null, null)
                 Triple(
                     connectionName,
@@ -153,7 +155,7 @@ object TransactionManager {
                 )
             }
 
-            QueryType.COMMIT.value -> {
+            QueryType.COMMIT -> {
                 if (connectionName == null || connection == null) Triple(null, null, null)
                 else {
                     val (name, tempConnection, _) = processSingleQuery(null, null, InitTransactionQueryDto())
@@ -165,7 +167,7 @@ object TransactionManager {
                 }
             }
 
-            QueryType.ROLLBACK.value -> {
+            QueryType.ROLLBACK -> {
                 if (connectionName == null || connection == null) Triple(null, null, null)
                 else {
                     val (name, tempConnection, _) = processSingleQuery(null, null, InitTransactionQueryDto())
@@ -178,6 +180,7 @@ object TransactionManager {
             }
 
             else -> {
+                Logger.debug("Unknown query type ${query.queryType}", "database")
                 Triple(null, null, null)
             }
         }
@@ -201,12 +204,16 @@ object TransactionManager {
         return listOf(RowDto(mutableMapOf("result" to ResultPlaceholder.ROLLEDBACK.value)))
     }
 
-    private fun execute(connection: Connection, query: QueryDto, columns: List<String>): List<RowDto> {
+    private fun execute(connection: Connection, query: QueryDto, columns: List<String>, insert: Boolean = false): List<RowDto> {
         val start = System.currentTimeMillis()
 
         val stmt = query.prepare(connection)
 
-        val rs = stmt.executeQuery()
+        val rs = if (!insert) stmt.executeQuery()
+                 else {
+                    stmt.executeUpdate()
+                    stmt.generatedKeys
+                 }
 
         val result = mutableListOf<RowDto>()
         while (rs.next()) {
@@ -236,7 +243,9 @@ object TransactionManager {
         val connection = ds.connection
         TableRegister.tables.forEach { (_, entry) ->
             val (type, table) = entry
-            executeNoResult(connection, table.initTable(dbType = type, forceRecreate = forceRecreate))
+            val query = table.initTable(dbType = type, forceRecreate = forceRecreate)
+            Logger.debug("Init table ${table.tableName_} - ${query.sql}", "database")
+            executeNoResult(connection, query)
         }
         connection.commit()
         connection.close()

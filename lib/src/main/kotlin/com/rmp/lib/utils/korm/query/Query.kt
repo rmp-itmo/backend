@@ -7,6 +7,7 @@ import kotlinx.serialization.Serializable
 import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.SQLException
+import java.sql.Statement
 
 sealed class Query: SerializableClass
 
@@ -23,9 +24,14 @@ enum class QueryType(val value: Int) {
     SELECT(2),
     UPDATE(3),
     DELETE(3),
-    INSERT(3),
-    COMMIT(4),
-    ROLLBACK(5),
+    INSERT(4),
+    COMMIT(5),
+    ROLLBACK(6);
+
+    companion object {
+        fun getByValue(value: Int): QueryType =
+            QueryType.entries.first { it.value == value }
+    }
 }
 
 // Table -> List of Columns
@@ -51,8 +57,8 @@ open class QueryDto (
     val queryParseData: QueryParseData? = null,
 ): Query() {
     companion object {
-        fun executeQuery(queryType: QueryType, sqlQuery: String, params: List<Any?> = listOf()): QueryDto =
-            QueryDto(queryType.value, sqlQuery, params)
+        fun executeQuery(queryType: QueryType, sqlQuery: String, params: List<Any?> = listOf(), queryParseData: QueryParseData? = null): QueryDto =
+            QueryDto(queryType.value, sqlQuery, params, queryParseData)
 
         fun selectQuery(sqlQuery: String, queryParseData: QueryParseData, params: List<Any?> = listOf()): QueryDto =
             QueryDto(QueryType.SELECT.value, sqlQuery, params, queryParseData)
@@ -60,6 +66,28 @@ open class QueryDto (
 
     infix fun named(name: String): Pair<String, QueryDto> {
         return Pair(name, this)
+    }
+
+    fun prepare(connection: Connection): PreparedStatement {
+        val stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)
+        params.forEachIndexed { index, param ->
+            if (param == null) {
+                stmt.setObject(index + 1, null)
+                return@forEachIndexed
+            }
+
+            when(param) {
+                is Int -> stmt.setInt(index + 1, param)
+                is Long -> stmt.setLong(index + 1, param)
+                is String -> stmt.setString(index + 1, param)
+                is Boolean -> stmt.setBoolean(index + 1, param)
+                is Float -> stmt.setFloat(index + 1, param)
+                is Double -> stmt.setDouble(index + 1, param)
+                else -> throw SQLException("Unknown param type $param")
+            }
+        }
+
+        return stmt
     }
 }
 
@@ -80,25 +108,3 @@ class CommitQueryDto: QueryDto(QueryType.COMMIT.value, "", listOf())
 
 @Serializable
 class RollbackQueryDto: QueryDto(QueryType.ROLLBACK.value, "", listOf())
-
-fun QueryDto.prepare(connection: Connection): PreparedStatement {
-    val stmt = connection.prepareStatement(sql)
-    params.forEachIndexed { index, param ->
-        if (param == null) {
-            stmt.setObject(index + 1, null)
-            return@forEachIndexed
-        }
-
-        when(param) {
-            is Int -> stmt.setInt(index + 1, param)
-            is Long -> stmt.setLong(index + 1, param)
-            is String -> stmt.setString(index + 1, param)
-            is Boolean -> stmt.setBoolean(index + 1, param)
-            is Float -> stmt.setFloat(index + 1, param)
-            is Double -> stmt.setDouble(index + 1, param)
-            else -> throw SQLException("Unknown param type $param")
-        }
-    }
-
-    return stmt
-}

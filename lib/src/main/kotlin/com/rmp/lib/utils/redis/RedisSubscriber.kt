@@ -32,7 +32,9 @@ abstract class RedisSubscriber: AbstractKredsSubscriber() {
     override fun onMessage(channel: String, message: String) {
 
         val redisEvent = try {
-            Json.serializer.decodeFromString<RedisEvent>(message)
+            val event = Json.serializer.decodeFromString<RedisEvent>(message)
+            Logger.traceEventReceived(event)
+            event
         } catch (e: IllegalArgumentException) {
             Logger.debugException("Failed to parse redis event", e, "trace")
             null

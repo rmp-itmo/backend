@@ -5,6 +5,7 @@ import com.rmp.auth.dto.AuthInputDto
 import com.rmp.auth.dto.TokenOutputDto
 import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.shared.modules.user.UserModel
+import com.rmp.lib.utils.korm.insert
 import com.rmp.lib.utils.korm.query.batch.newAutoCommitTransaction
 import com.rmp.lib.utils.korm.query.batch.newTransaction
 import com.rmp.lib.utils.redis.RedisEvent
@@ -60,6 +61,12 @@ class AuthService(di: DI): FsmService(di) {
                 .select(UserModel.id, UserModel.login, UserModel.password)
                 .where { UserModel.login eq data.login }
                 .named("select-user")
+
+            this add UserModel.insert {
+                it[name] = "User"
+                it[login] = data.login
+                it[password] = data.password
+            }.named("insert-user")
         }
 
         redisEvent.switchOnDb(transaction, redisEvent.mutateState(AuthEventState.VERIFY, data))
@@ -67,6 +74,10 @@ class AuthService(di: DI): FsmService(di) {
 
     suspend fun verify(redisEvent: RedisEvent) {
         val data = redisEvent.parseDbSelect()["select-user"]?.firstOrNull()
+        val insertData = redisEvent.parseDbSelect()["insert-user"]?.firstOrNull()
+
+        println(insertData)
+
         val authDto = redisEvent.parseState<AuthInputDto>()
 
         if (data == null || authDto == null) {

@@ -28,8 +28,6 @@ class FsmRouter(override val di: DI) : DIAware {
     suspend fun process(event: RedisEvent) {
         val fsm = routes[event.eventType] ?: throw Exception("Unknown event type: ${event.eventType}")
 
-        Logger.traceEventReceived(event)
-
         fsm.process(event)
     }
 }
