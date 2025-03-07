@@ -2,14 +2,27 @@ package com.rmp.lib.utils.korm.column
 
 import com.rmp.lib.utils.korm.query.builders.filter.Operator
 
-infix fun Column<Int>.eq(value: Int): Operator =
-    Operator(
-        expression = "${this.fullQualifiedName} = ?",
-        param = value
-    )
+fun <T> Column<T?>.isNull(): Operator =
+    Operator("${this.fullQualifiedName} is NULL")
 
-infix fun Column<Long>.eq(value: Long): Operator =
-    Operator("${this.fullQualifiedName} = ?", value)
+infix fun <T: Number, R: Number> Column<T>.inList(value: List<R>): Operator =
+    Operator("${this.fullQualifiedName} in (${value.joinToString(",") {"?"}}", value)
+
+infix fun <T: Number, R: Number> Column<T>.notInList(value: List<R>): Operator =
+    Operator("${this.fullQualifiedName} not in (${value.joinToString(",") {"?"}}", value)
+
+infix fun <T: Number, R: Number> Column<T>.eq(value: R): Operator =
+    Operator("${this.fullQualifiedName} = $value", value)
+
+infix fun <T: Number, R: Number> Column<T>.neq(value: R): Operator =
+    Operator("${this.fullQualifiedName} != $value", value)
+
+infix fun <T: Number, R: Number> Column<T>.lessEq(value: R): Operator =
+    Operator("${this.fullQualifiedName} <= $value", value)
+
+infix fun <T: Number, R: Number> Column<T>.grEq(value: R): Operator =
+    Operator("${this.fullQualifiedName} >= $value", value)
+
 
 @JvmName("eq")
 infix fun Column<String>.eq(value: String): Operator =
@@ -21,9 +34,3 @@ infix fun Column<String?>.eq(value: String): Operator =
 
 infix fun Column<*>.eq(value: Column<*>): Operator =
     Operator("${this.fullQualifiedName} = ${value.fullQualifiedName}")
-
-infix fun Column<Int>.less(value: Int): Operator =
-    Operator("${this.fullQualifiedName} < ?", value)
-
-infix fun Column<Long>.less(value: Long): Operator =
-    Operator("${this.fullQualifiedName} < ?", value)

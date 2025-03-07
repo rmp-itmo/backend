@@ -53,15 +53,22 @@ open class Table(val tableName_: String) {
     fun update(filter: Operator, row: Row.() -> Unit) =
         UpdateQueryBuilder(this).apply {
             filterExpression = filter
-        }.execute(Row.apply(row))
+        }.execute(Row.build(row))
 
     fun delete(filter: Operator) =
         DeleteQueryBuilder(this).apply {
             filterExpression = filter
         }.execute()
+
+    fun <T> batchInsert(collection: Collection<T>, processor: Row.(item: T) -> Unit): QueryDto =
+        InsertQueryBuilder(this).execute(collection.map {
+            val row = Row.build{}
+            processor.invoke(row, it)
+            row
+        })
 }
 
 fun <T: Table> T.insert(create: T.(row: Row) -> Unit): QueryDto =
-    InsertQueryBuilder(this).execute(Row.apply {
+    InsertQueryBuilder(this).execute(Row.build {
         create(this)
     })

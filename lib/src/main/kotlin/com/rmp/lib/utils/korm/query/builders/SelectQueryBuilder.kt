@@ -21,6 +21,9 @@ class SelectQueryBuilder<T: Table>(table: T): QueryBuilder(table) {
 
     private var selectColumns: MutableList<Column<*>> = mutableListOf()
     private var joins: MutableList<Join<*>> = mutableListOf()
+    private var limit: Long? = null
+    private var offset: Long? = null
+    private var countQuery: Boolean = false
 
     fun setColumns(columns: List<Column<*>>): SelectQueryBuilder<T> {
         selectColumns = columns.toMutableList()
@@ -40,6 +43,16 @@ class SelectQueryBuilder<T: Table>(table: T): QueryBuilder(table) {
 
     fun orWhere(filter: () -> Operator): SelectQueryBuilder<T> {
         filterExpression = filterExpression or filter.invoke()
+        return this
+    }
+
+    fun limit(n: Number): SelectQueryBuilder<T> {
+        limit = n.toLong()
+        return this
+    }
+
+    fun offset(n: Number): SelectQueryBuilder<T> {
+        offset = n.toLong()
         return this
     }
 
@@ -65,17 +78,27 @@ class SelectQueryBuilder<T: Table>(table: T): QueryBuilder(table) {
         throw Exception("No reference found for ${target.tableName_} in current query")
     }
 
+
+    fun count(name: String): Pair<String, QueryDto> {
+        countQuery = true
+        return Pair(name, execute())
+    }
+
     fun named(name: String): Pair<String, QueryDto> = Pair(name, execute())
 
     private fun finalizeQuery(): QueryBuilder {
         setQuery(StringBuilder().apply {
             append("SELECT ")
-            if (selectColumns.size >= 1)
-                append(selectColumns.joinToString(",") { it.fullQualifiedName })
-            else {
-                selectColumns += table.columns.values
-                selectColumns += joins.map { it.target.columns.values }.flatten()
-                append("*")
+            if (countQuery) {
+                append("COUNT(*)")
+            } else {
+                if (selectColumns.size >= 1)
+                    append(selectColumns.joinToString(",") { it.fullQualifiedName })
+                else {
+                    selectColumns += table.columns.values
+                    selectColumns += joins.map { it.target.columns.values }.flatten()
+                    append("*")
+                }
             }
             append(" FROM ")
             append(table.tableName_)
@@ -90,6 +113,16 @@ class SelectQueryBuilder<T: Table>(table: T): QueryBuilder(table) {
         append(" ")
 
         loadExpressionFilter()
+
+        append(" ")
+
+        if (limit != null)
+            append("LIMIT $limit")
+
+        append(" ")
+
+        if (offset != null)
+            append("OFFSET $offset")
 
         return this
     }

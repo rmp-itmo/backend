@@ -18,5 +18,6 @@ application {
     api = "api-channel"
     auth = "auth-channel"
     logger = "logger-channel"
+    paprika = "paprika-channel"
   }
 }

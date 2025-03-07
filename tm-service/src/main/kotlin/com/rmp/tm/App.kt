@@ -1,6 +1,10 @@
 package com.rmp.tm
 
 import com.rmp.lib.shared.conf.AppConf
+import com.rmp.lib.shared.modules.dish.DishModel
+import com.rmp.lib.shared.modules.dish.DishTypeModel
+import com.rmp.lib.shared.modules.paprika.CacheModel
+import com.rmp.lib.shared.modules.paprika.CacheToDishModel
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.kodein.bindSingleton
 import com.rmp.lib.utils.korm.DbType
@@ -26,6 +30,7 @@ fun main(args: Array<String>) {
     }
 
     TableRegister.register(DbType.PGSQL, UserModel)
+    TableRegister.register(DbType.PGSQL, CacheModel, CacheToDishModel, DishModel, DishTypeModel)
 
     TransactionManager.initTables(forceRecreate = true)
 

@@ -28,6 +28,9 @@ class UpdateQueryBuilder(table: Table) : QueryBuilder(table) {
         append(row.updatedColumns.joinToString(",") {
             "${it.name}=?"
         }, row.updatedValues)
+        append(row.incremented.joinToString(",") { (col, type, _) ->
+            "${col.name} = ${col.name} ${if (type == Row.UpdateOp.INC) "+" else "-"} ?"
+        }, row.incremented.map{(_, _, v) -> v})
         loadExpressionFilter()
         return QueryDto.executeQuery(QueryType.UPDATE, getQuery(), getParams())
     }

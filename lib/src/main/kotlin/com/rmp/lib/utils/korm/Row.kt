@@ -6,6 +6,15 @@ import java.sql.ResultSet
 class Row private constructor() {
     private val data: MutableMap<Column<*>, Any?> = mutableMapOf()
     private val updated: MutableSet<Column<*>> = mutableSetOf()
+//
+    enum class UpdateOp {
+        INC, DEC
+    }
+
+    private val inc: MutableList<Triple<Column<*>, UpdateOp, Any?>> = mutableListOf()
+
+    val incremented: Collection<Triple<Column<*>, UpdateOp, Any?>>
+        get() = inc
 
     val columns: Set<Column<*>>
         get() = data.keys
@@ -20,7 +29,7 @@ class Row private constructor() {
         get() = updatedColumns.map { data[it] }
 
     companion object {
-        fun apply(row: Row.() -> Unit): Row {
+        fun build(row: Row.() -> Unit): Row {
             return Row().apply(row)
         }
 
@@ -52,6 +61,18 @@ class Row private constructor() {
     operator fun <T> set(column: Column<T>, value: T?) {
         updated += column
         data[column] = value
+    }
+
+    operator fun Column<*>.plusAssign(value: Any?) {
+        inc += Triple(this, UpdateOp.INC, value)
+    }
+
+    operator fun Column<*>.minusAssign(value: Any?) {
+        inc += Triple(this, UpdateOp.DEC, value)
+    }
+
+    infix fun <T> Column<T>.set(value: T) {
+        this@Row[this] = value
     }
 
     fun unwrap(table: Table): Row {
