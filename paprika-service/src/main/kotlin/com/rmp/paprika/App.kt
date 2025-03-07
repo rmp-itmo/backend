@@ -1,11 +1,10 @@
-package com.rmp.auth
+package com.rmp.paprika
 
 import com.rmp.auth.actions.AuthFsm
 import com.rmp.auth.services.AuthService
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.kodein.bindSingleton
-import com.rmp.lib.utils.korm.DbType
 import com.rmp.lib.utils.korm.TableRegister
 import com.rmp.lib.utils.redis.PubSubService
 import com.rmp.lib.utils.redis.RedisEvent
@@ -21,16 +20,15 @@ import org.kodein.di.instance
 fun main(args: Array<String>) {
     val kodein = DI {
         bindSingleton { PubSubService(AppConf.redis.auth, it) }
-        bindSingleton { AuthService(it) }
 
         bindSingleton {
             FsmRouter.routing(it) {
-                fsm(AuthFsm("auth", it))
+
             }
         }
     }
 
-    TableRegister.register(DbType.PGSQL, UserModel)
+    TableRegister.register(UserModel)
 
     val router by kodein.instance<FsmRouter>()
 
