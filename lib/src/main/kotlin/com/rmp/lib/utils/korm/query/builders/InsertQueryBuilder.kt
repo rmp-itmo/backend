@@ -1,5 +1,6 @@
 package com.rmp.lib.utils.korm.query.builders
 
+import com.rmp.lib.utils.korm.IdTable
 import com.rmp.lib.utils.korm.Row
 import com.rmp.lib.utils.korm.Table
 import com.rmp.lib.utils.korm.query.QueryBuilder
@@ -18,6 +19,9 @@ class InsertQueryBuilder(table: Table) : QueryBuilder(table) {
         }, row.values)
         append(")")
 
-        return QueryDto.executeQuery(QueryType.INSERT, getQuery(), getParams())
+        return if (table is IdTable)
+            QueryDto.executeQuery(QueryType.INSERT, getQuery(), getParams(), mutableMapOf(table.tableName_ to mutableListOf(table.id.name)))
+        else
+            QueryDto.executeQuery(QueryType.INSERT, getQuery(), getParams(), mutableMapOf(table.tableName_ to mutableListOf()))
     }
 }

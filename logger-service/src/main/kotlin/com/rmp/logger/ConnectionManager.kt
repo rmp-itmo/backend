@@ -3,7 +3,6 @@ package com.rmp.logger
 import com.rmp.lib.utils.korm.TableRegister
 import com.rmp.lib.utils.korm.initTable
 import com.rmp.lib.utils.korm.query.QueryDto
-import com.rmp.lib.utils.korm.query.prepare
 import com.rmp.logger.conf.ServiceConf
 import com.zaxxer.hikari.HikariDataSource
 import kotlinx.coroutines.CoroutineScope

@@ -52,7 +52,7 @@ open class Table(val tableName_: String) {
     fun update(filter: FilterExpressionBuilder.() -> Unit, row: Row.() -> Unit) =
         UpdateQueryBuilder(this).apply {
             filterExpression.apply(filter)
-        }.execute(Row().apply(row))
+        }.execute(Row.apply(row))
 
     fun delete(filter: FilterExpressionBuilder.() -> Unit) =
         DeleteQueryBuilder(this).apply {
@@ -61,6 +61,6 @@ open class Table(val tableName_: String) {
 }
 
 fun <T: Table> T.insert(create: T.(row: Row) -> Unit): QueryDto =
-    InsertQueryBuilder(this).execute(Row().apply {
+    InsertQueryBuilder(this).execute(Row.apply {
         create(this)
     })
