@@ -4,7 +4,10 @@ application {
   }
 
   dbConf {
-    jdbcUrl = "jdbc:postgresql://localhost:5432/test_db"
+    proto = "jdbc:postgresql"
+//    url = "pg:5432" docker env conf
+    url = "localhost:5432"
+    dbName = "rmp"
     driverClassName = "org.postgresql.Driver"
     username = "postgres"
     password = "my-secret-pw"

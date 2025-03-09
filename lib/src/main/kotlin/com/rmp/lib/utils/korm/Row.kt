@@ -71,6 +71,7 @@ class Row private constructor() {
         inc += Triple(this, UpdateOp.DEC, value)
     }
 
+    @JvmName("rowColumnSet")
     infix fun <T> Column<T>.set(value: T) {
         this@Row[this] = value
     }

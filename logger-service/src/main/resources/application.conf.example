@@ -4,7 +4,10 @@ application {
   }
 
   dbConf {
-    jdbcUrl = "jdbc:clickhouse://localhost:8123/logs"
+    proto = "jdbc:clickhouse"
+    url = "0.0.0.0:8123"
+//    url = "clickhouse:8123" docker env conf
+    dbName = "logs"
     driverClassName = "com.clickhouse.jdbc.ClickHouseDriver"
     username = "clickhouse"
     password = "my-secret-pw"

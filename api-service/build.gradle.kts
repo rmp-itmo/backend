@@ -15,7 +15,7 @@ application {
 
 tasks.named("build") {
     doLast {
-        delete("$rootDir/docker/jvm-services/dist/api.jar")
+        delete("$rootDir/docker/jvm/dist/api.jar")
         copy {
             from("$rootDir/api-service/build/libs/api-service-all.jar")
             into("$rootDir/docker/jvm/dist")

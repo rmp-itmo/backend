@@ -103,7 +103,7 @@ class FloatColumn: ColumnType<Float>() {
 class DoubleColumn: ColumnType<Double>() {
     override val sqlRepresentationName: MutableMap<DbType, String>
         get() = mutableMapOf(
-            DbType.PGSQL to "double",
+            DbType.PGSQL to "double precision",
             DbType.CLICKHOUSE to "Float64"
         )
 

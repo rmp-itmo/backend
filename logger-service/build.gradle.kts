@@ -1,3 +1,5 @@
+val jdbcClickhouseVersion: String by project
+
 plugins {
     id("buildlogic.kotlin-service-conventions")
 }
@@ -7,18 +9,29 @@ version = "0.0.1"
 
 dependencies {
     implementation(project(":lib"))
-    implementation("com.clickhouse:clickhouse-jdbc:0.8.2")
+    implementation("com.clickhouse:clickhouse-jdbc:$jdbcClickhouseVersion")
 }
 
+val mainClassName = "com.rmp.logger.AppKt"
+
 application {
-    mainClass.set("com.rmp.logger.AppKt")
+    mainClass.set(mainClassName)
+}
+
+tasks.shadowJar {
+    manifest {
+        attributes(
+            "Main-Class" to mainClassName
+        )
+    }
 }
 
 tasks.named("build") {
     doLast {
-        delete("$rootDir/docker/jvm-services/dist/logger.jar")
+        delete("$rootDir/docker/jvm/dist/logger.jar")
+        println(rootDir)
         copy {
-            from("$rootDir/user-service/build/libs/logger-service-all.jar")
+            from("$rootDir/logger-service/build/libs/logger-service-$version-all.jar")
             into("$rootDir/docker/jvm/dist")
             rename {
                 "logger.jar"

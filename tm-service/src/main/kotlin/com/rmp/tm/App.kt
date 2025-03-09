@@ -21,7 +21,7 @@ import kotlinx.coroutines.*
 import org.kodein.di.DI
 import org.kodein.di.instance
 
-fun main(args: Array<String>) {
+fun main() {
     TransactionManager.init {
         jdbcUrl = ServiceConf.dbConf.jdbcUrl
         driverClassName = ServiceConf.dbConf.driverClassName
@@ -30,7 +30,8 @@ fun main(args: Array<String>) {
     }
 
     TableRegister.register(DbType.PGSQL, UserModel)
-    TableRegister.register(DbType.PGSQL, CacheModel, CacheToDishModel, DishModel, DishTypeModel)
+    TableRegister.register(DbType.PGSQL, DishTypeModel, DishModel)
+    TableRegister.register(DbType.PGSQL, CacheModel, CacheToDishModel)
 
     TransactionManager.initTables(forceRecreate = true)
 

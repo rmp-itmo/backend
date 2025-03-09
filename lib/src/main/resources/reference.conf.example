@@ -11,6 +11,7 @@ application {
   }
 
   redis {
+//    host = "redis" for docker env
     host = "0.0.0.0"
     port = 6379
 

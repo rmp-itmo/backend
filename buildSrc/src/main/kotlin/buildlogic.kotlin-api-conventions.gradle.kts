@@ -1,19 +1,10 @@
-val kotlinVersion: String by project
-val kotlinxCoroutinesVersion: String by project
-
 val ktorVersion: String by project
 val kotestVersion: String by project
 val ktorKotestVersion: String by project
-val kodeinVersion: String by project
-
-val logbackVersion: String by project
-val prometeusVersion: String by project
 
 plugins {
     id("buildlogic.kotlin-common-conventions")
     id("io.ktor.plugin")
-    kotlin("jvm")
-    kotlin("plugin.serialization")
 
     application
 }

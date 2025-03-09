@@ -1,8 +1,6 @@
 package com.rmp.tm.korm
 
-import com.rmp.lib.utils.korm.Row
-import com.rmp.lib.utils.korm.RowDto
-import com.rmp.lib.utils.korm.TableRegister
+import com.rmp.lib.utils.korm.*
 import com.rmp.lib.utils.korm.query.*
 import com.rmp.lib.utils.redis.RedisEvent
 import com.zaxxer.hikari.HikariConfig
@@ -13,8 +11,8 @@ import kotlinx.coroutines.ObsoleteCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.actor
 import java.sql.Connection
-import com.rmp.lib.utils.korm.initTable
 import com.rmp.lib.utils.log.Logger
+import org.postgresql.util.PSQLException
 
 object TransactionManager {
     private lateinit var ds: HikariDataSource
@@ -239,13 +237,47 @@ object TransactionManager {
         })
     }
 
+//    private fun initTable(initialized: MutableSet<String>, connection: Connection, type: DbType, forceRecreate: Boolean, table: Table): Pair<Connection, MutableSet<String>> {
+//        Logger.debug("INIT TABLE ${table.tableName_}")
+//        if (table.tableName_ in initialized) return connection to initialized;
+//        return try {
+//            initialized += table.tableName_
+//            connection to initialized
+//        } catch (e: PSQLException) {
+//            Logger.debug("$connection Closed? ${connection.isClosed}")
+//            connection.commit()
+//            connection.close()
+//            val refreshedConnection = ds.connection
+//            Logger.debug("Recreated - $refreshedConnection")
+//            Logger.debug("Failed to init ${table.tableName_} ${e.message}")
+//            val relationNotFound = Regex("ERROR: relation \"([^.]*)\" does not exist")
+//            if (e.message?.matches(relationNotFound) == true) {
+//                val (tableName) = relationNotFound.find(e.message ?: "")?.destructured ?: return refreshedConnection to initialized
+//                val (dbType, relatedTable) = TableRegister.tables[tableName] ?: return refreshedConnection to initialized
+//                val (newConnection, updated) = initTable(initialized, refreshedConnection, dbType, forceRecreate, relatedTable)
+//                Logger.debug("Nested table initialized: ${relatedTable.tableName_} ${newConnection}")
+//                initTable(updated, newConnection, type, forceRecreate, table)
+//            } else throw e
+//        }
+//    }
+
     fun initTables(forceRecreate: Boolean) {
         val connection = ds.connection
         TableRegister.tables.forEach { (_, entry) ->
             val (type, table) = entry
             val query = table.initTable(dbType = type, forceRecreate = forceRecreate)
-            Logger.debug("Init table ${table.tableName_} - ${query.sql}", "database")
-            executeNoResult(connection, query)
+            Logger.debug("Init table ${table.tableName_} - ${query.sql} $connection", "database")
+            try {
+                executeNoResult(connection, query)
+            } catch (e: PSQLException) {
+                val relationNotFound = Regex("ERROR: relation \"([^.]*)\" does not exist")
+                val (tableName) = relationNotFound.find(e.message ?: "")?.destructured ?: throw e
+                if (e.message?.matches(relationNotFound) == true) {
+                    connection.rollback()
+                    connection.close()
+                    throw Exception("Failed to init table '${table.tableName_}' relation '$tableName' must be created first")
+                } else throw e
+            }
         }
         connection.commit()
         connection.close()
