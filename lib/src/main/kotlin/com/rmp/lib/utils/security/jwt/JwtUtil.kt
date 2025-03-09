@@ -6,12 +6,11 @@ import com.auth0.jwt.interfaces.Payload
 import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.modules.auth.dto.AuthorizedUser
-import com.rmp.lib.shared.modules.auth.dto.RefreshTokenDto
 import com.rmp.lib.utils.log.Logger
 import java.util.*
 
 object JwtUtil {
-    fun createToken(userId: Int, lastLogin: Long? = null): String {
+    fun createToken(userId: Long, lastLogin: Long? = null): String {
         return JWT.create()
             .withIssuer(AppConf.jwt.domain)
             .withIssuedAt(Date(System.currentTimeMillis()))
@@ -30,12 +29,11 @@ object JwtUtil {
     }
 
     fun decodeAccessToken(principal: Payload): AuthorizedUser = AuthorizedUser(
-        id = principal.getClaim("id")!!.asInt(),
-    )
-
-    fun decodeRefreshToken(principal: Payload): RefreshTokenDto = RefreshTokenDto(
-        id = principal.getClaim("id")!!.asInt(),
-        lastLogin = principal.getClaim("lastLogin")!!.asLong()
+        id = principal.getClaim("id")!!.asLong(),
+        lastLogin = principal.getClaim("lastLogin").let {
+            if (it.isNull) null
+            else it.asLong()
+        }
     )
 
     fun verifyNative(token: String): AuthorizedUser {
@@ -49,11 +47,6 @@ object JwtUtil {
         return if (verified != null) {
             val claims = verified.claims
             val currentTime: Long = System.currentTimeMillis() / 1000
-            Logger.debug(currentTime, "main")
-            Logger.debug(claims["exp"], "main")
-            Logger.debug(claims["iss"], "main")
-            Logger.debug(claims["id"], "main")
-            Logger.debug(claims["rules"], "main")
             if (currentTime > (claims["exp"]?.asInt()
                     ?: 0) || claims["iss"]?.asString() != AppConf.jwt.domain
             ) {
@@ -62,7 +55,7 @@ object JwtUtil {
             }
             else {
                 AuthorizedUser(
-                    id = claims["id"]?.asInt() ?: throw ForbiddenException(),
+                    id = claims["id"]?.asLong() ?: throw ForbiddenException(),
                 )
             }
         } else {

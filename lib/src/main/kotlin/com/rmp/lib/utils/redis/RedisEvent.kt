@@ -1,5 +1,6 @@
 package com.rmp.lib.utils.redis
 
+import com.rmp.lib.shared.modules.auth.dto.AuthorizedUser
 import com.rmp.lib.utils.korm.Row
 import com.rmp.lib.utils.korm.TableRegister
 import com.rmp.lib.utils.korm.query.QueryResult
@@ -14,6 +15,7 @@ data class RedisEvent (
     val eventType: String,
     val eventState: RedisEventState,
     val data: String,
+    val authorizedUser: AuthorizedUser? = null,
     var tid: String? = null,
 ): SerializableClass {
     inline fun <reified T: SerializableClass> switchData(data: T, tid: String? = null): RedisEvent {
@@ -21,11 +23,23 @@ data class RedisEvent (
             it.annotationClass == Serializable::class
         })
             throw Exception("Data must be serializable")
-        return RedisEvent(action, from, eventType, eventState, Json.serializer.encodeToString(data), tid)
+        return RedisEvent(action, from, eventType, eventState, Json.serializer.encodeToString(data), authorizedUser, tid)
+    }
+
+    inline fun <reified T: SerializableClass> switchData(data: T): RedisEvent {
+        if (!data::class.annotations.any {
+                it.annotationClass == Serializable::class
+            })
+            throw Exception("Data must be serializable")
+        return RedisEvent(action, from, eventType, eventState, Json.serializer.encodeToString(data), authorizedUser, tid)
     }
 
     fun switch(stateMutation: RedisEventState): RedisEvent {
-        return RedisEvent(action, from, eventType, stateMutation, data, tid)
+        return RedisEvent(action, from, eventType, stateMutation, data, authorizedUser, tid)
+    }
+
+    fun authorize(authorizedUser: AuthorizedUser?): RedisEvent {
+        return RedisEvent(action, from, eventType, eventState, data, authorizedUser, tid)
     }
 
     fun mutateState(newState: Enum<*>) = eventState.mutate(newState)
@@ -54,7 +68,7 @@ data class RedisEvent (
             }
         else null
 
-    fun parseDbSelect(): Map<String, List<Row>> {
+    fun parseDb(): Map<String, List<Row>> {
         val queryResult = parseData<QueryResult>()
 
         return queryResult?.result?.mapNotNull { (label, result) ->

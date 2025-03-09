@@ -16,8 +16,8 @@ open class IdTable(tableName_: String): Table(tableName_) {
 
     fun hasRef(table: Table): Boolean = references.containsKey(table)
 
-    fun reference(name: String, target: IdTable, deleteOption: ReferenceOption = ReferenceOption.RESTRICT, updateOption: ReferenceOption = ReferenceOption.RESTRICT): Column<Int> =
-        createColumn(name, IntColumn()).let {
+    fun reference(name: String, target: IdTable, deleteOption: ReferenceOption = ReferenceOption.RESTRICT, updateOption: ReferenceOption = ReferenceOption.RESTRICT): Column<Long> =
+        createColumn(name, LongColumn()).let {
             if (references[target] != null)
                 references[target]!! += Reference(it, target, deleteOption, updateOption)
             else

@@ -1,8 +1,8 @@
 package com.rmp.api
 
 import com.rmp.api.conf.ServerConf
-import com.rmp.api.modules.auth.controller.AuthController
-import com.rmp.api.modules.auth.service.ApiService
+import com.rmp.api.modules.auth.AuthController
+import com.rmp.api.utils.ApiService
 import com.rmp.api.plugins.*
 import com.rmp.api.utils.kodein.bindSingleton
 import com.rmp.api.utils.kodein.regKodein

@@ -1,5 +1,6 @@
 package com.rmp.api.utils.kodein
 
+import com.rmp.api.utils.ApiService
 import io.ktor.http.*
 import io.ktor.server.application.*
 import io.ktor.server.auth.*
@@ -9,13 +10,15 @@ import org.kodein.di.DIAware
 import com.rmp.lib.exceptions.BadRequestException
 import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.exceptions.InternalServerException
-import com.rmp.lib.shared.modules.auth.dto.RefreshTokenDto
 import com.rmp.lib.shared.modules.auth.dto.AuthorizedUser
 import com.rmp.lib.utils.security.jwt.JwtUtil
+import io.ktor.server.request.*
 import io.ktor.server.response.*
 import kotlinx.coroutines.*
+import org.kodein.di.instance
 
 abstract class KodeinController: DIAware {
+    protected val apiService: ApiService by instance()
 
     abstract fun Route.registerRoutes()
 
@@ -24,9 +27,12 @@ abstract class KodeinController: DIAware {
         return JwtUtil.decodeAccessToken(principal.payload)
     }
 
-    fun ApplicationCall.getRefresh(): RefreshTokenDto {
-        val principal = principal<JWTPrincipal>() ?: throw ForbiddenException()
-        return JwtUtil.decodeRefreshToken(principal.payload)
+    suspend fun ApplicationCall.process(eventName: String, channel: String) {
+        respond(apiService.process(eventName, receiveText(), channel, getAuthorized()))
+    }
+
+    suspend fun ApplicationCall.processUnauthorized(eventName: String, channel: String) {
+        respond(apiService.process(eventName, receiveText(), channel, null))
     }
 
     suspend fun ApplicationCall.respond(deferred: CompletableDeferred<String>): Unit = withContext(Dispatchers.IO) {

@@ -12,16 +12,16 @@ infix fun <T: Number, R: Number> Column<T>.notInList(value: List<R>): Operator =
     Operator("${this.fullQualifiedName} not in (${value.joinToString(",") {"?"}}", value)
 
 infix fun <T: Number, R: Number> Column<T>.eq(value: R): Operator =
-    Operator("${this.fullQualifiedName} = $value", value)
+    Operator("${this.fullQualifiedName} = ?", value)
 
 infix fun <T: Number, R: Number> Column<T>.neq(value: R): Operator =
-    Operator("${this.fullQualifiedName} != $value", value)
+    Operator("${this.fullQualifiedName} != ?", value)
 
 infix fun <T: Number, R: Number> Column<T>.lessEq(value: R): Operator =
-    Operator("${this.fullQualifiedName} <= $value", value)
+    Operator("${this.fullQualifiedName} <= ?", value)
 
 infix fun <T: Number, R: Number> Column<T>.grEq(value: R): Operator =
-    Operator("${this.fullQualifiedName} >= $value", value)
+    Operator("${this.fullQualifiedName} >= ?", value)
 
 
 @JvmName("eq")
