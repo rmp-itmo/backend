@@ -12,5 +12,5 @@ data class DishDto (
     val fat: Double,
     val carbohydrates: Double,
     val timeToCook: Int,
-    val typeId: Int,
+    val typeId: Long,
 )

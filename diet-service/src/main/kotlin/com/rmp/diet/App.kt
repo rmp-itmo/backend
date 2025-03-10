@@ -8,8 +8,6 @@ import com.rmp.lib.shared.modules.diet.DietDishLogModel
 import com.rmp.lib.shared.modules.diet.DietWaterLogModel
 import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.shared.modules.dish.DishTypeModel
-import com.rmp.lib.shared.modules.paprika.CacheModel
-import com.rmp.lib.shared.modules.paprika.CacheToDishModel
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.kodein.bindSingleton
 import com.rmp.lib.utils.korm.DbType
@@ -40,7 +38,7 @@ fun main() {
 
     // DB tables
     TableRegister.register(DbType.PGSQL, UserModel)
-    TableRegister.register(DbType.PGSQL, CacheModel, CacheToDishModel, DishModel, DishTypeModel)
+    TableRegister.register(DbType.PGSQL, DishModel, DishTypeModel)
     TableRegister.register(DbType.PGSQL, DietDishLogModel, DietWaterLogModel)
 
     val router by kodein.instance<FsmRouter>()

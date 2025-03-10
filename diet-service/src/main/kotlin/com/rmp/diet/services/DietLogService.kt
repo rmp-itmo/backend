@@ -2,6 +2,7 @@ package com.rmp.diet.services
 
 import com.rmp.diet.actions.food.DishLogEventState
 import com.rmp.diet.actions.water.WaterLogEventState
+import com.rmp.diet.dto.dish.DishDto
 import com.rmp.diet.dto.dish.DishLogUploadDto
 import com.rmp.diet.dto.dish.DishLogOutputDto
 import com.rmp.diet.dto.water.WaterLogOutputDto
@@ -11,6 +12,7 @@ import com.rmp.lib.shared.modules.diet.DietDishLogModel
 import com.rmp.lib.shared.modules.diet.DietWaterLogModel
 import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.utils.korm.insert
+import com.rmp.lib.utils.korm.query.BatchQuery
 import com.rmp.lib.utils.korm.query.batch.newAutoCommitTransaction
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
@@ -45,15 +47,16 @@ class DietLogService(di: DI): FsmService(di) {
     }
 
     // Dish Log //
+
     suspend fun uploadDish(redisEvent: RedisEvent) {
         val user = redisEvent.authorizedUser ?: throw Exception("Bad user")
         val data = redisEvent.parseData<DishLogUploadDto>() ?: throw Exception("Bad data")
         if (data.id == null && data.dish == null) throw Exception("Bad dish ID provided")
 
-        // В Dto два пля: если id != null, значит пользователь указал свой рецепт и такого блюда у нас нет.
+        // В Dto два поля: если id == null, значит пользователь указал свой рецепт и такого блюда у нас нет.
 
-        if (data.id != null) {
-            val transaction = newAutoCommitTransaction {
+        val transaction = if (data.id != null) {
+            newAutoCommitTransaction {
                 this add DietDishLogModel
                     .insert {
                         it[userId] = user.id
@@ -61,24 +64,30 @@ class DietLogService(di: DI): FsmService(di) {
                         it[dish] = data.id
                     }.named("insert-dish-log")
             }
-            redisEvent.switchOnDb(transaction, redisEvent.mutateState(DishLogEventState.CREATED))
         } else {
-            val dish = data.dish!!
-            val createTransaction = newAutoCommitTransaction {
-                this add DishModel
-                    .insert {
-                        it[name] = dish.name
-                        it[description] = dish.description
-                        it[portionsCount] = dish.portionsCount
-                        it[imageUrl] = "" // Нет реализации загрузки фотографий
-                        it[calories] = dish.calories
-                        it[fat] = dish.fat
-                        it[carbohydrates] = dish.carbohydrates
-                        it[cookTime] = dish.timeToCook
-                        it[author] = user.id
-                    }.named("insert-dish")
-            }
-            redisEvent.switchOnDb(createTransaction, redisEvent.mutateState(DishLogEventState.CREATE_DISH))
+            createDishTransaction(data.dish!!, user.id)
+        }
+
+        redisEvent.switchOnDb(
+            transaction,
+            redisEvent.mutateState(if (data.id != null) DishLogEventState.CREATED else DishLogEventState.CREATE_DISH)
+        )
+    }
+
+    private fun createDishTransaction(dish: DishDto, userId: Long): BatchQuery {
+        return newAutoCommitTransaction {
+            this add DishModel
+                .insert {
+                    it[name] = dish.name
+                    it[description] = dish.description
+                    it[portionsCount] = dish.portionsCount
+                    it[imageUrl] = "" // Нет реализации загрузки фотографий
+                    it[calories] = dish.calories
+                    it[fat] = dish.fat
+                    it[carbohydrates] = dish.carbohydrates
+                    it[cookTime] = dish.timeToCook
+                    it[author] = userId
+                }.named("insert-dish")
         }
     }
 
