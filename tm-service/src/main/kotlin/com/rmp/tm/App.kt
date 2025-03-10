@@ -1,7 +1,7 @@
 package com.rmp.tm
 
 import com.rmp.lib.shared.conf.AppConf
-import com.rmp.lib.shared.modules.diet.DietFoodLogModel
+import com.rmp.lib.shared.modules.diet.DietDishLogModel
 import com.rmp.lib.shared.modules.diet.DietWaterLogModel
 import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.shared.modules.dish.DishTypeModel
@@ -37,7 +37,7 @@ fun main() {
     TableRegister.register(DbType.PGSQL, UserModel, UserLoginModel)
     TableRegister.register(DbType.PGSQL, DishTypeModel, DishModel)
     TableRegister.register(DbType.PGSQL, CacheModel, CacheToDishModel)
-    TableRegister.register(DbType.PGSQL, DietFoodLogModel, DietWaterLogModel)
+    TableRegister.register(DbType.PGSQL, DietDishLogModel, DietWaterLogModel)
 
     TransactionManager.initTables(forceRecreate = true) {
         this add UserModel.insert {

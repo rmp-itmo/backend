@@ -17,4 +17,6 @@ object AppConf {
     val redis: RedisConf = mainConfig.extract<RedisConf>("application.redis")
 
     val logger: LoggerConf = mainConfig.extract<LoggerConf>("application.loggerConf")
+
+    val zonedOffset: ZonedConf = mainConfig.extract<ZonedConf>("application.zonedOffset")
 }

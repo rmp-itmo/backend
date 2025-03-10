@@ -1,4 +1,4 @@
-package com.rmp.diet.dto
+package com.rmp.diet.dto.dish
 
 import kotlinx.serialization.Serializable
 

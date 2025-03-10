@@ -1,10 +1,10 @@
-package com.rmp.diet.dto
+package com.rmp.diet.dto.dish
 
 import com.rmp.lib.utils.redis.SerializableClass
 import kotlinx.serialization.Serializable
 
-
 @Serializable
-data class WaterUploadDto(
-    val volume: Float,
+data class DishLogUploadDto(
+    val id: Long? = null,
+    val dish: DishDto? = null,
 ): SerializableClass

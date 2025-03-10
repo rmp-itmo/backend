@@ -1,10 +1,10 @@
 package com.rmp.diet
 
-import com.rmp.diet.actions.food.FoodUploadFsm
-import com.rmp.diet.actions.water.WaterUploadFsm
-import com.rmp.diet.services.DietUploadService
+import com.rmp.diet.actions.food.DishLogFsm
+import com.rmp.diet.actions.water.WaterLogFsm
+import com.rmp.diet.services.DietLogService
 import com.rmp.lib.shared.conf.AppConf
-import com.rmp.lib.shared.modules.diet.DietFoodLogModel
+import com.rmp.lib.shared.modules.diet.DietDishLogModel
 import com.rmp.lib.shared.modules.diet.DietWaterLogModel
 import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.shared.modules.dish.DishTypeModel
@@ -29,11 +29,11 @@ import org.kodein.di.instance
 fun main() {
     val kodein = DI {
         bindSingleton { PubSubService(AppConf.redis.diet, it) }
-        bindSingleton { DietUploadService(it) }
+        bindSingleton { DietLogService(it) }
         bindSingleton {
             FsmRouter.routing(it) {
-                fsm(FoodUploadFsm("user-upload-intake", it))
-                fsm(WaterUploadFsm("user-upload-water", it))
+                fsm(DishLogFsm("user-upload-dish-log", it))
+                fsm(WaterLogFsm("user-upload-water-log", it))
             }
         }
     }
@@ -41,7 +41,7 @@ fun main() {
     // DB tables
     TableRegister.register(DbType.PGSQL, UserModel)
     TableRegister.register(DbType.PGSQL, CacheModel, CacheToDishModel, DishModel, DishTypeModel)
-    TableRegister.register(DbType.PGSQL, DietFoodLogModel, DietWaterLogModel)
+    TableRegister.register(DbType.PGSQL, DietDishLogModel, DietWaterLogModel)
 
     val router by kodein.instance<FsmRouter>()
 
