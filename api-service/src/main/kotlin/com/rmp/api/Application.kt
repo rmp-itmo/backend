@@ -1,6 +1,7 @@
 package com.rmp.api
 
 import com.rmp.api.conf.ServerConf
+import com.rmp.api.modules.auth.controller.UserController
 import com.rmp.api.modules.auth.AuthController
 import com.rmp.api.utils.ApiService
 import com.rmp.api.plugins.*
@@ -24,6 +25,7 @@ val kodein = DI {
 
     // ----- Controllers ------
     bindSingleton { AuthController(it) }
+    bindSingleton { UserController(it) }
 }
 
 fun main() {
