@@ -8,5 +8,6 @@ data class RedisConf (
     val api: String,
     val auth: String,
     val logger: String,
-    val paprika: String
+    val paprika: String,
+    val diet: String,
 )
