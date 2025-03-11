@@ -6,7 +6,7 @@ import com.rmp.lib.utils.redis.fsm.Fsm
 import org.kodein.di.DI
 import org.kodein.di.instance
 
-class AuthFsm(event: String, di: DI) : Fsm(event, di) {
+class AuthFsm(di: DI): Fsm("auth", di) {
     private val authService by instance<AuthService>()
     private val refreshService by instance<RefreshService>()
 

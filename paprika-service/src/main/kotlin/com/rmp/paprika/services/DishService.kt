@@ -1,11 +1,9 @@
 package com.rmp.paprika.services
 
 import com.rmp.lib.shared.modules.dish.DishModel
-import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.column.lessEq
-import com.rmp.lib.utils.korm.column.neq
 import com.rmp.lib.utils.korm.column.notInList
-import com.rmp.lib.utils.korm.query.QueryDto
+import com.rmp.lib.utils.korm.query.builders.SelectQueryBuilder
 import com.rmp.lib.utils.korm.query.builders.filter.Operator
 import com.rmp.lib.utils.korm.query.builders.filter.and
 import com.rmp.lib.utils.redis.fsm.FsmService
@@ -24,26 +22,17 @@ class DishService(override val di: DI): FsmService(di) {
             else -> DishModel.cookTime lessEq 1000
         }
 
-    private fun typeCond(type: Int): Operator {
-        return if (type == 0)
-            DishModel.type neq 0
-        else
-            DishModel.type eq type
-    }
-
     private fun createDishByParamsCond(mealOptionsDto: MealOptionsDto, paprikaInputDto: PaprikaInputDto): Operator =
         DishModel.id notInList paprikaInputDto.excludeDishes and
-//        dietCond(paprikaInputDto.diet) and
         difficultyCond(mealOptionsDto.difficulty)
-//        typeCond(eatingOptionsDto.type)
 
-    fun getDishesIdByEatingParams(mealOptionsDto: MealOptionsDto, paprikaInputDto: PaprikaInputDto) =
-        DishModel.select(DishModel.id).where { createDishByParamsCond(mealOptionsDto, paprikaInputDto) }
+    fun getDishesIdByEatingParams(mealOptionsDto: MealOptionsDto, paprikaInputDto: PaprikaInputDto): SelectQueryBuilder<*> =
+        DishModel.select().where { createDishByParamsCond(mealOptionsDto, paprikaInputDto) }
 
-    fun getDishesByEatingParams(mealOptionsDto: MealOptionsDto, paprikaInputDto: PaprikaInputDto, offset: Long = 1): Pair<String, QueryDto> =
+    fun getDishesByMealParams(mealOptionsDto: MealOptionsDto, paprikaInputDto: PaprikaInputDto, offset: Long = 1): SelectQueryBuilder<*> =
         DishModel.select().where {
             createDishByParamsCond(mealOptionsDto, paprikaInputDto)
-        }.limit(750).offset(offset).named("get-dishes")
+        }.limit(750).offset(offset)
 
 //    fun removeSimple(id: Int?): Any = transaction {
 //        DishModel.deleteWhere {
@@ -75,7 +64,7 @@ class DishService(override val di: DI): FsmService(di) {
 //            .selectAll()
 //            .map {
 //                SIMPLEDishOutput(
-//                    it[DishModel.id].value,
+//                    it[DishModel.id],
 //                    it[DishModel.protein],
 //                    it[DishModel.fat],
 //                    it[DishModel.carbohydrates],
@@ -90,6 +79,4 @@ class DishService(override val di: DI): FsmService(di) {
 //                )
 //            }
 //    }
-
-
 }

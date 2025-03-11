@@ -18,7 +18,7 @@ import kotlinx.coroutines.runBlocking
 import org.kodein.di.DI
 import org.kodein.di.instance
 
-fun main(args: Array<String>) {
+fun main() {
 
     val kodein = DI {
         bindSingleton { PubSubService(AppConf.redis.auth, it) }

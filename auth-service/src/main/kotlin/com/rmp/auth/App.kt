@@ -32,9 +32,9 @@ fun main() {
 
         bindSingleton {
             FsmRouter.routing(it) {
-                fsm(AuthFsm("auth", it))
-                fsm(RefreshFsm("refresh", it))
-                fsm(GetMeFsm("getme", it))
+                fsm(AuthFsm(it))
+                fsm(RefreshFsm(it))
+                fsm(GetMeFsm(it))
             }
         }
     }

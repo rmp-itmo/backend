@@ -20,5 +20,6 @@ application {
     auth = "auth-channel"
     logger = "logger-channel"
     paprika = "paprika-channel"
+    diet = "diet-channel"
   }
 }

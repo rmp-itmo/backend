@@ -10,4 +10,5 @@ data class MealOutputDto (
     var dishes: List<DishDto>,
     val params: MacronutrientsDto,
     val idealParams: MacronutrientsDto? = null,
+    val cacheId: Long? = null
 )

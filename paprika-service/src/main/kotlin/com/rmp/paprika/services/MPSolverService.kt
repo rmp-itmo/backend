@@ -54,8 +54,8 @@ class MPSolverService internal constructor() {
     infix fun onData(data: List<Row>) {
         this.data = data
     }
-    infix fun withObjective(objectiveKey: Column<Number>) {
-        this.objectiveKey = objectiveKey
+    infix fun <T : Number> withObjective(objectiveKey: Column<T>) {
+        this.objectiveKey = objectiveKey as Column<Number>
     }
 
     private fun mpVariables(): List<MPVariable> {

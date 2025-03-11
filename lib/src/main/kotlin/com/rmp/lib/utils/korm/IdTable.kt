@@ -9,10 +9,11 @@ import com.rmp.lib.utils.korm.references.ReferenceOption
 
 open class IdTable(tableName_: String): Table(tableName_) {
     val id: EntityId = EntityId(this, "id")
+    val entityCount: EntityCount = EntityCount(this, "count")
 
     val references: MutableMap<IdTable, MutableList<Reference>> = mutableMapOf()
 
-    override val columns: MutableMap<String, Column<*>> = mutableMapOf("id" to id)
+    override val columns: MutableMap<String, Column<*>> = mutableMapOf("id" to id, "count(*)" to entityCount)
 
     fun hasRef(table: Table): Boolean = references.containsKey(table)
 

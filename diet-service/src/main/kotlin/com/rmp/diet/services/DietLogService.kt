@@ -21,7 +21,7 @@ import java.time.LocalDateTime
 import java.time.ZoneOffset
 
 class DietLogService(di: DI): FsmService(di) {
-    private val offset = AppConf.zonedOffset.offsetValue
+    private val offset = AppConf.zoneOffset
 
     // Water Log //
     suspend fun uploadWater(redisEvent: RedisEvent) {

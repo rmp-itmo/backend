@@ -4,7 +4,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class DishDto (
-    val id: Int,
+    val id: Long,
     val name: String,
     val logo: String,
     val calories: Double,
@@ -12,5 +12,5 @@ data class DishDto (
     val fat: Double,
     val carbohydrates: Double,
     val timeToCook: Int,
-    val typeId: Int,
+    val typeId: Long,
 )
