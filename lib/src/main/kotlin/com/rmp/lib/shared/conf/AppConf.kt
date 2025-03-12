@@ -18,5 +18,5 @@ object AppConf {
 
     val logger: LoggerConf = mainConfig.extract<LoggerConf>("application.loggerConf")
 
-    val zonedOffset: ZonedConf = mainConfig.extract<ZonedConf>("application.zonedOffset")
+    val zoneOffset: Int by mainConfig
 }

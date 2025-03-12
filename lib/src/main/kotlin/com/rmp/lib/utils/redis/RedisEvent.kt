@@ -80,4 +80,7 @@ data class RedisEvent (
             }
         }?.toMap() ?: mutableMapOf()
     }
+
+    fun copyId(newEventType: String): RedisEvent =
+        RedisEvent(action, from, newEventType, eventState, data, authorizedUser, tid)
 }

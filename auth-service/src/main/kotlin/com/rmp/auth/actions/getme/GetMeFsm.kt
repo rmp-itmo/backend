@@ -5,7 +5,7 @@ import com.rmp.lib.utils.redis.fsm.Fsm
 import org.kodein.di.DI
 import org.kodein.di.instance
 
-class GetMeFsm(event: String, di: DI) : Fsm(event, di) {
+class GetMeFsm(di: DI) : Fsm("getme", di) {
     private val getMeService: GetMeService by instance()
 
     override fun Fsm.registerStates() {

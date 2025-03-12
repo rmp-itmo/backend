@@ -3,6 +3,7 @@ package com.rmp.lib.utils.korm.query.builders
 import com.rmp.lib.utils.korm.IdTable
 import com.rmp.lib.utils.korm.Table
 import com.rmp.lib.utils.korm.column.Column
+import com.rmp.lib.utils.korm.column.EntityCount
 import com.rmp.lib.utils.korm.query.QueryBuilder
 import com.rmp.lib.utils.korm.query.QueryDto
 import com.rmp.lib.utils.korm.query.QueryParseData
@@ -91,12 +92,13 @@ class SelectQueryBuilder<T: Table>(table: T): QueryBuilder(table) {
             append("SELECT ")
             if (countQuery) {
                 append("COUNT(*)")
+                selectColumns = mutableListOf()
             } else {
                 if (selectColumns.size >= 1)
                     append(selectColumns.joinToString(",") { it.fullQualifiedName })
                 else {
                     selectColumns += table.columns.values
-                    selectColumns += joins.map { it.target.columns.values }.flatten()
+                    selectColumns += joins.map { tableJoin -> tableJoin.target.columns.filterNot { it.value is EntityCount }.values }.flatten()
                     append("*")
                 }
             }
@@ -138,6 +140,9 @@ class SelectQueryBuilder<T: Table>(table: T): QueryBuilder(table) {
             else
                 queryParseData[it.table.tableName_] = mutableListOf(it.name)
         }
+
+        if (countQuery && table is IdTable)
+            queryParseData[table.tableName_] = mutableListOf(table.entityCount.name)
 
         return QueryDto.selectQuery(getQuery(), queryParseData, getParams())
     }

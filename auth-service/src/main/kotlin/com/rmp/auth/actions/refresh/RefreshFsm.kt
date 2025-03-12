@@ -5,7 +5,7 @@ import com.rmp.lib.utils.redis.fsm.Fsm
 import org.kodein.di.DI
 import org.kodein.di.instance
 
-class RefreshFsm(event: String, di: DI) : Fsm(event, di) {
+class RefreshFsm(di: DI) : Fsm("refresh", di) {
     private val refreshService by instance<RefreshService>()
 
     override fun Fsm.registerStates() {

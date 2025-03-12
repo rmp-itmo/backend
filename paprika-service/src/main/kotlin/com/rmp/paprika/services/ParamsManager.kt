@@ -7,7 +7,7 @@ import com.rmp.paprika.dto.meal.ParametersDto
 class ParamsManager internal constructor() {
     lateinit var params: ParametersDto
     private var calories: Double = 0.0
-    private var eatingsCoef: Double = 1.0
+    private var mealsCoef: Double = 1.0
     var calculatedFromParams: Boolean = false
     /*
         That param is used to auto calculate and validate params
@@ -23,8 +23,9 @@ class ParamsManager internal constructor() {
     }
 
     fun withSize(coef: Double) {
-        eatingsCoef = coef
+        mealsCoef = coef
     }
+
     fun fromPaprikaInput(paprikaInputDto: PaprikaInputDto, delta: Double = 1.0) {
         return if (paprikaInputDto.params != null) {
             fromParams(paprikaInputDto.params, delta)
@@ -34,7 +35,8 @@ class ParamsManager internal constructor() {
         else
             throw CantSolveException("You must provide either macronutrients params or calories")
     }
-    fun fromCalories(calories: Double?, delta: Double = 1.0) {
+
+    private fun fromCalories(calories: Double?, delta: Double = 1.0) {
         if (calories == null)
             return
         this.calories = calories
@@ -42,7 +44,7 @@ class ParamsManager internal constructor() {
         val fat = createMinMaxValue(9, delta)
         val carbohydrates = createMinMaxValue(4, delta)
         this.params = ParametersDto(
-            calories = this.calories * eatingsCoef,
+            calories = this.calories * mealsCoef,
 
             minProtein = protein.first,
             maxProtein = protein.second,
@@ -54,24 +56,24 @@ class ParamsManager internal constructor() {
             maxCarbohydrates = carbohydrates.second,
         )
     }
-    fun fromParams(params: ParametersDto?, delta: Double = 0.0) {
+    private fun fromParams(params: ParametersDto?, delta: Double = 0.0) {
         calculatedFromParams = true
         if (params == null)
             return
         this.validateParams(params)
         println("Get from params: $params")
         this.params = ParametersDto(
-            calories = params.calories * eatingsCoef,
+            calories = params.calories * mealsCoef,
 
-            minProtein = params.minProtein * eatingsCoef * (1.0 - delta),
-            maxProtein = params.maxProtein * eatingsCoef * (1.0 + delta),
+            minProtein = params.minProtein * mealsCoef * (1.0 - delta),
+            maxProtein = params.maxProtein * mealsCoef * (1.0 + delta),
 
 
-            minFat = params.minFat * eatingsCoef * (1.0 - delta),
-            maxFat = params.maxFat * eatingsCoef * (1.0 + delta),
+            minFat = params.minFat * mealsCoef * (1.0 - delta),
+            maxFat = params.maxFat * mealsCoef * (1.0 + delta),
 
-            minCarbohydrates = params.minCarbohydrates * eatingsCoef * (1.0 - delta),
-            maxCarbohydrates = params.maxCarbohydrates * eatingsCoef * (1.0 + delta),
+            minCarbohydrates = params.minCarbohydrates * mealsCoef * (1.0 - delta),
+            maxCarbohydrates = params.maxCarbohydrates * mealsCoef * (1.0 + delta),
         )
     }
 
@@ -93,7 +95,7 @@ class ParamsManager internal constructor() {
     }
 
     private fun createMinMaxValue(divider: Int = 4, delta: Double = 1.0): Pair<Double, Double> {
-        val value = (calories / 3) / divider * eatingsCoef
+        val value = (calories / 3) / divider * mealsCoef
         return Pair(
             value * (1 - delta),
             value * (1 + delta)
