@@ -52,7 +52,11 @@ class DietTargetCheckService(di: DI): FsmService(di) {
             }
 
             redisEvent.switchOnDb(transaction, redisEvent.mutateState(DailyTargetCheckEventState.SELECTED_DAILY_DISHES))
-        } ?: redisEvent.mutateState(DailyTargetCheckEventState.CHECKED_DISHES, TargetCheckResultDto())
+        } ?: redisEvent.switchOn<TargetCheckResultDto>(
+            AppConf.redis.diet,
+            redisEvent.mutateState(
+                DailyTargetCheckEventState.CHECKED_DISHES,
+                TargetCheckResultDto()))
     }
 
     suspend fun selectCalories(redisEvent: RedisEvent) {
@@ -67,17 +71,18 @@ class DietTargetCheckService(di: DI): FsmService(di) {
         redisEvent.switchOnDb(transaction, redisEvent.mutateState(DailyTargetCheckEventState.SELECTED_CALORIES))
     }
 
-    fun checkDishes(redisEvent: RedisEvent) {
+    suspend fun checkDishes(redisEvent: RedisEvent) {
         val calories = redisEvent.parseDb()["select-calories"] ?: throw Exception("Bad data")
         val targets = redisEvent.parseDb()["select-targets"]?.firstOrNull() ?: throw Exception("Bad data")
         val caloriesTarget = targets[UserModel.caloriesTarget] ?: throw Exception("Bad data")
 
         val sum = calories.sumOf { it[DishModel.calories] }
 
-        redisEvent.mutateState(
-            DailyTargetCheckEventState.CHECKED_DISHES,
-            TargetCheckResultDto(caloriesTarget < sum)
-        )
+        redisEvent.switchOn<TargetCheckResultDto>(
+            AppConf.redis.diet, redisEvent.mutateState(
+                DailyTargetCheckEventState.CHECKED_DISHES,
+                TargetCheckResultDto(caloriesTarget < sum)
+        ))
     }
 
     suspend fun selectDailyWater(redisEvent: RedisEvent) {
@@ -101,11 +106,13 @@ class DietTargetCheckService(di: DI): FsmService(di) {
             }
 
             redisEvent.switchOnDb(transaction, redisEvent.mutateState(DailyTargetCheckEventState.SELECTED_DAILY_WATER, data))
-        } ?: redisEvent.mutateState(DailyTargetCheckEventState.CHECKED_WATER, data)
+        } ?: redisEvent.switchOn<TargetCheckResultDto>(
+            AppConf.redis.diet,
+            redisEvent.mutateState(DailyTargetCheckEventState.CHECKED_WATER, data))
     }
 
 
-    fun checkWater(redisEvent: RedisEvent) {
+    suspend fun checkWater(redisEvent: RedisEvent) {
         val data = redisEvent.parseData<TargetCheckResultDto>() ?: throw Exception("Bad data")
         val water = redisEvent.parseDb()["select-daily-water"] ?: throw Exception("Bad data")
         val targets = redisEvent.parseDb()["select-targets"]?.firstOrNull() ?: throw Exception("Bad data")
@@ -115,10 +122,10 @@ class DietTargetCheckService(di: DI): FsmService(di) {
 
         data.water = waterTarget < sum
 
-        redisEvent.mutateState(
+        redisEvent.switchOn<TargetCheckResultDto>(AppConf.redis.diet, redisEvent.mutateState(
             DailyTargetCheckEventState.CHECKED_WATER,
             data
-        )
+        ))
     }
 
     suspend fun checked(redisEvent: RedisEvent) {
