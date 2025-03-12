@@ -52,11 +52,9 @@ class DietTargetCheckService(di: DI): FsmService(di) {
             }
 
             redisEvent.switchOnDb(transaction, redisEvent.mutateState(DailyTargetCheckEventState.SELECTED_DAILY_DISHES))
-        } ?: redisEvent.switchOn<TargetCheckResultDto>(
-            AppConf.redis.diet,
+        } ?: redisEvent.switchOn(TargetCheckResultDto(), AppConf.redis.diet,
             redisEvent.mutateState(
-                DailyTargetCheckEventState.CHECKED_DISHES,
-                TargetCheckResultDto()))
+                DailyTargetCheckEventState.CHECKED_DISHES))
     }
 
     suspend fun selectCalories(redisEvent: RedisEvent) {
@@ -78,10 +76,9 @@ class DietTargetCheckService(di: DI): FsmService(di) {
 
         val sum = calories.sumOf { it[DishModel.calories] }
 
-        redisEvent.switchOn<TargetCheckResultDto>(
-            AppConf.redis.diet, redisEvent.mutateState(
-                DailyTargetCheckEventState.CHECKED_DISHES,
-                TargetCheckResultDto(caloriesTarget < sum)
+        redisEvent.switchOn(TargetCheckResultDto(caloriesTarget < sum), AppConf.redis.diet,
+            redisEvent.mutateState(
+                DailyTargetCheckEventState.CHECKED_DISHES
         ))
     }
 
@@ -106,9 +103,8 @@ class DietTargetCheckService(di: DI): FsmService(di) {
             }
 
             redisEvent.switchOnDb(transaction, redisEvent.mutateState(DailyTargetCheckEventState.SELECTED_DAILY_WATER, data))
-        } ?: redisEvent.switchOn<TargetCheckResultDto>(
-            AppConf.redis.diet,
-            redisEvent.mutateState(DailyTargetCheckEventState.CHECKED_WATER, data))
+        } ?: redisEvent.switchOn(data, AppConf.redis.diet,
+            redisEvent.mutateState(DailyTargetCheckEventState.CHECKED_WATER))
     }
 
 
@@ -122,9 +118,8 @@ class DietTargetCheckService(di: DI): FsmService(di) {
 
         data.water = waterTarget < sum
 
-        redisEvent.switchOn<TargetCheckResultDto>(AppConf.redis.diet, redisEvent.mutateState(
-            DailyTargetCheckEventState.CHECKED_WATER,
-            data
+        redisEvent.switchOn(data, AppConf.redis.diet, redisEvent.mutateState(
+            DailyTargetCheckEventState.CHECKED_WATER
         ))
     }
 
