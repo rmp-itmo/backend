@@ -1,6 +1,7 @@
 package com.rmp.diet
 
-import com.rmp.diet.actions.food.DishLogFsm
+import com.rmp.diet.actions.dish.DishLogFsm
+import com.rmp.diet.actions.target.DailyTargetCheckFsm
 import com.rmp.diet.actions.water.WaterLogFsm
 import com.rmp.diet.services.DietLogService
 import com.rmp.lib.shared.conf.AppConf
@@ -30,8 +31,9 @@ fun main() {
         bindSingleton { DietLogService(it) }
         bindSingleton {
             FsmRouter.routing(it) {
-                fsm(DishLogFsm("user-upload-dish-log", it))
-                fsm(WaterLogFsm("user-upload-water-log", it))
+                fsm(DishLogFsm(it))
+                fsm(WaterLogFsm(it))
+                fsm(DailyTargetCheckFsm(it))
             }
         }
     }

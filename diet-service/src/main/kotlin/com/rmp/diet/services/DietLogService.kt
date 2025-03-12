@@ -1,10 +1,10 @@
 package com.rmp.diet.services
 
-import com.rmp.diet.actions.food.DishLogEventState
+import com.rmp.diet.actions.dish.DishLogEventState
 import com.rmp.diet.actions.water.WaterLogEventState
 import com.rmp.diet.dto.dish.DishDto
-import com.rmp.diet.dto.dish.DishLogUploadDto
-import com.rmp.diet.dto.dish.DishLogOutputDto
+import com.rmp.diet.dto.dish.log.DishLogUploadDto
+import com.rmp.diet.dto.dish.log.DishLogOutputDto
 import com.rmp.diet.dto.water.WaterLogOutputDto
 import com.rmp.diet.dto.water.WaterLogUploadDto
 import com.rmp.lib.shared.conf.AppConf

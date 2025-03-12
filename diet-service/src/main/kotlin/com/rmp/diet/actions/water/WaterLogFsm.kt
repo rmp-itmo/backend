@@ -5,7 +5,7 @@ import com.rmp.lib.utils.redis.fsm.Fsm
 import org.kodein.di.DI
 import org.kodein.di.instance
 
-class WaterLogFsm(event: String, di: DI) : Fsm(event, di) {
+class WaterLogFsm(di: DI) : Fsm("user-upload-water-log", di) {
     private val dietLogService: DietLogService by instance()
 
     override fun Fsm.registerStates() {
