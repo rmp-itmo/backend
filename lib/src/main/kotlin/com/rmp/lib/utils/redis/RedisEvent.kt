@@ -18,7 +18,7 @@ data class RedisEvent (
     val authorizedUser: AuthorizedUser? = null,
     var tid: String? = null,
 ): SerializableClass {
-    inline fun <reified T: SerializableClass> switchData(data: T, tid: String? = null): RedisEvent {
+    inline fun <reified T: SerializableClass> mutateData(data: T, tid: String? = null): RedisEvent {
         if (!data::class.annotations.any {
             it.annotationClass == Serializable::class
         })
@@ -26,7 +26,7 @@ data class RedisEvent (
         return RedisEvent(action, from, eventType, eventState, Json.serializer.encodeToString(data), authorizedUser, tid)
     }
 
-    inline fun <reified T: SerializableClass> switchData(data: T): RedisEvent {
+    inline fun <reified T: SerializableClass> mutateData(data: T): RedisEvent {
         if (!data::class.annotations.any {
                 it.annotationClass == Serializable::class
             })
@@ -34,7 +34,7 @@ data class RedisEvent (
         return RedisEvent(action, from, eventType, eventState, Json.serializer.encodeToString(data), authorizedUser, tid)
     }
 
-    fun switch(stateMutation: RedisEventState): RedisEvent {
+    fun mutate(stateMutation: RedisEventState): RedisEvent {
         return RedisEvent(action, from, eventType, stateMutation, data, authorizedUser, tid)
     }
 
@@ -42,11 +42,11 @@ data class RedisEvent (
         return RedisEvent(action, from, eventType, eventState, data, authorizedUser, tid)
     }
 
-    fun mutateState(newState: Enum<*>) = eventState.mutate(newState)
+    fun mutate(newState: Enum<*>) = eventState.mutate(newState)
 
-    inline fun <reified T: SerializableClass> mutateState(newStateData: T) = eventState.mutate(newStateData)
+    inline fun <reified T: SerializableClass> mutate(newStateData: T) = eventState.mutate(newStateData)
 
-    inline fun <reified T: SerializableClass> mutateState(newState: Enum<*>, newStateData: T) = eventState.mutate(newState.name, newStateData)
+    inline fun <reified T: SerializableClass> mutate(newState: Enum<*>, newStateData: T) = eventState.mutate(newState.name, newStateData)
 
     inline fun <reified T: SerializableClass> parseData(silent: Boolean = false): T? =
         try {

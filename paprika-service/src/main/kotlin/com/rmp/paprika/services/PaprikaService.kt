@@ -117,19 +117,19 @@ class PaprikaService(di: DI) : FsmService(di) {
 
         redisEvent.switch(
             AppConf.redis.paprika,
-            redisEvent.mutateState(GenerateMenuState.GENERATE_MEAL, GenerateMenuStateDto(paprikaInputDto)))
+            redisEvent.mutate(GenerateMenuState.GENERATE_MEAL, GenerateMenuStateDto(paprikaInputDto)))
     }
 
     suspend fun generateMeal(redisEvent: RedisEvent) {
         val state = redisEvent.parseState<GenerateMenuStateDto>() ?: throw InternalServerException("Event state corrupted")
 
         if (state.index >= state.paprikaInputDto.meals.lastIndex)
-            redisEvent.switch(redisEvent.mutateState(GenerateMenuState.MEAL_GENERATED))
+            redisEvent.mutate(redisEvent.mutate(GenerateMenuState.MEAL_GENERATED))
         else {
             val generateMeal = redisEvent.copyId("generate-meal")
             redisEvent.switch(
                 AppConf.redis.paprika,
-                generateMeal.mutateState(GenerateMealState.INIT, state.clearMealState())
+                generateMeal.mutate(GenerateMealState.INIT, state.clearMealState())
             )
         }
     }
@@ -152,7 +152,7 @@ class PaprikaService(di: DI) : FsmService(di) {
         } else {
             redisEvent.switch(
                 AppConf.redis.paprika,
-                redisEvent.mutateState(GenerateMenuState.GENERATE_MEAL, state.nextMeal())
+                redisEvent.mutate(GenerateMenuState.GENERATE_MEAL, state.nextMeal())
             )
         }
 
@@ -172,7 +172,7 @@ class PaprikaService(di: DI) : FsmService(di) {
                 .count("dishes-count")
         }
 
-        redisEvent.switchOnDb(transaction, redisEvent.mutateState(GenerateMealState.SEARCH_DISHES))
+        redisEvent.switchOnDb(transaction, redisEvent.mutate(GenerateMealState.SEARCH_DISHES))
     }
 
     private suspend fun mealSolutionFound(redisEvent: RedisEvent, paramsManager: ParamsManager, state: GenerateMenuStateDto, dishes: List<Row>, cacheId: Long? = null) {
@@ -193,7 +193,7 @@ class PaprikaService(di: DI) : FsmService(di) {
 
         mealSolved.switch(
             AppConf.redis.paprika,
-            redisEvent.mutateState(GenerateMenuState.MEAL_GENERATED, state.appendMeal(mealOutput))
+            redisEvent.mutate(GenerateMenuState.MEAL_GENERATED, state.appendMeal(mealOutput))
         )
     }
 
@@ -210,7 +210,7 @@ class PaprikaService(di: DI) : FsmService(di) {
                             .findMeal(state.paprikaInputDto, state.index)
                             .named("cache-entries")
             }
-            redisEvent.switchOnDb(transaction, redisEvent.mutateState(GenerateMealState.CACHE_FETCHED))
+            redisEvent.switchOnDb(transaction, redisEvent.mutate(GenerateMealState.CACHE_FETCHED))
             return
         }
         switchMealSolvingToDishFetch(redisEvent, state)
@@ -228,7 +228,7 @@ class PaprikaService(di: DI) : FsmService(di) {
         else {
             val acceptableEntry = cacheEntries.firstOrNull {
                 it[CacheModel.id] !in excludedEntries
-            } ?: return redisEvent.switch(AppConf.redis.paprika, redisEvent.mutateState(GenerateMealState.SEARCH_DISHES))
+            } ?: return redisEvent.switch(AppConf.redis.paprika, redisEvent.mutate(GenerateMealState.SEARCH_DISHES))
 
             val transaction = newAutoCommitTransaction {
                 this add cacheService
@@ -238,7 +238,7 @@ class PaprikaService(di: DI) : FsmService(di) {
 
             redisEvent.switchOnDb(
                 transaction,
-                redisEvent.mutateState(
+                redisEvent.mutate(
                     GenerateMealState.SOLVED_BY_CACHE,
                     state.tempCacheId(acceptableEntry[CacheModel.id])
                 )
@@ -273,7 +273,7 @@ class PaprikaService(di: DI) : FsmService(di) {
 
         redisEvent.switch(
             AppConf.redis.paprika,
-            redisEvent.mutateState(GenerateMealState.DISHES_FETCHED, state.setDishCount(dishesCount))
+            redisEvent.mutate(GenerateMealState.DISHES_FETCHED, state.setDishCount(dishesCount))
         )
     }
 
@@ -336,7 +336,7 @@ class PaprikaService(di: DI) : FsmService(di) {
                         .getDishesByMealParams(state.currentMealOptions, state.paprikaInputDto, state.offset)
                         .named("dishes")
                 }
-                redisEvent.switchOnDb(transaction, redisEvent.mutateState(state.nextDishBatch()))
+                redisEvent.switchOnDb(transaction, redisEvent.mutate(state.nextDishBatch()))
             }
             return
         }

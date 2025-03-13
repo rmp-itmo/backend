@@ -39,7 +39,10 @@ fun main() {
     TableRegister.register(DbType.PGSQL, CacheModel, CacheToDishModel)
     TableRegister.register(DbType.PGSQL, DietDishLogModel, DietWaterLogModel)
 
-    TransactionManager.initTables(forceRecreate = true) {
+    TransactionManager.initTables(
+        forceRecreate = true,
+        excludedFromRecreation = mutableSetOf(DishModel, DishTypeModel)
+    ) {
         this add UserModel.insert {
             it[name] = "User"
             it[login] = "login"
@@ -99,7 +102,7 @@ fun main() {
                         val sender = event.from
 
                         pubSubService.publish(
-                            event.switchData(queryResult, queryResult.tid ?: event.tid),
+                            event.mutateData(queryResult, queryResult.tid ?: event.tid),
                             sender
                         )
                     }

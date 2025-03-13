@@ -27,7 +27,7 @@ class GetMeService(di: DI): FsmService(di) {
                 .named("select-last-login")
         }
 
-        redisEvent.switchOnDb(transaction, redisEvent.mutateState(GetMeEventState.RESOLVED, data))
+        redisEvent.switchOnDb(transaction, redisEvent.mutate(GetMeEventState.RESOLVED, data))
     }
 
     suspend fun resolved(redisEvent: RedisEvent) {

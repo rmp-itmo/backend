@@ -40,8 +40,12 @@ typealias QueryParseData = MutableMap<String, MutableList<String>>
 @Serializable
 data class ExecutionResult(
     val parseData: QueryParseData,
-    val rows: List<RowDto>
-)
+    val rows: List<RowDto>,
+) {
+    companion object {
+        fun empty(): ExecutionResult = ExecutionResult(mutableMapOf(), listOf())
+    }
+}
 
 @Serializable
 data class QueryResult (

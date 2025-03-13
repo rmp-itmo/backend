@@ -14,7 +14,7 @@ class AuthController(override val di: DI) : KodeinController() {
     override fun Route.registerRoutes() {
         route("auth") {
             post {
-                call.process("auth", AppConf.redis.auth)
+                call.processUnauthorized("auth", AppConf.redis.auth)
             }
             authenticate("default") {
                 post("refresh") {

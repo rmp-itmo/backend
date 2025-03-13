@@ -45,7 +45,16 @@ object TransactionManager {
 
                     if (connection == null) continue
 
-                    val (tidAfterProcess, _, executionResult) = processSingleQuery(name, connection, e.query)
+                    val (tidAfterProcess, _, executionResult) = try {
+                        processSingleQuery(name, connection, e.query)
+                    } catch (ex: Exception) {
+                        Logger.debugException(ex.message, ex, "database")
+                        processedChannel.send(Pair(e.redisEvent, QueryResult(
+                            null,
+                            mutableMapOf("" to ExecutionResult.empty())
+                        )))
+                        continue
+                    }
 
                     // Если на момент выполнения не было открыто подключения,
                     // get connection вернет пустое null имя и временное подключение connection
@@ -162,7 +171,12 @@ object TransactionManager {
 
             Logger.debug("[${QueryType.getByValue(query.queryType)}] ${query.sql} ${query.params}, TID=$connectionName, Conn=$connection", "database")
 
-            val (tid, conn, executionResult) = processSingleQuery(connectionName, connection, query)
+            val (tid, conn, executionResult) = try {
+                processSingleQuery(connectionName, connection, query)
+            } catch (ex: Exception) {
+                Logger.debugException(ex.message, ex, "database")
+                return@mapNotNull label to ExecutionResult.empty()
+            }
 
             connectionName = tid
             connection = conn
@@ -245,11 +259,11 @@ object TransactionManager {
         })
     }
 
-    fun initTables(forceRecreate: Boolean, initScript: (BatchBuilder.() -> Unit)? = null) {
+    fun initTables(forceRecreate: Boolean = false, excludedFromRecreation: Set<Table> = mutableSetOf(), initScript: (BatchBuilder.() -> Unit)? = null) {
         val connection = ds.connection
         TableRegister.tables.forEach { (_, entry) ->
             val (type, table) = entry
-            val query = table.initTable(dbType = type, forceRecreate = forceRecreate)
+            val query = table.initTable(dbType = type, forceRecreate = forceRecreate && table !in excludedFromRecreation)
             Logger.debug("Init table ${table.tableName_} - ${query.sql} $connection", "database")
             try {
                 executeNoResult(connection, query)

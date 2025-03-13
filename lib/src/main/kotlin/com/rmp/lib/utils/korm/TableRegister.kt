@@ -1,6 +1,7 @@
 package com.rmp.lib.utils.korm
 
 import com.rmp.lib.utils.korm.column.Column
+import com.rmp.lib.utils.korm.column.EntityCount
 import com.rmp.lib.utils.korm.query.QueryBuilder
 import com.rmp.lib.utils.korm.query.QueryDto
 import com.rmp.lib.utils.korm.query.QueryParseData
@@ -42,7 +43,7 @@ fun Table.initTable(dbType: DbType, forceRecreate: Boolean = false): QueryDto {
             append(" (")
 
             append(
-                columns.values.joinToString(separator = ",") { it.ddl(dbType) }
+                columns.filterNot { it.value is EntityCount }.values.joinToString(separator = ",") { it.ddl(dbType) }
             )
 
             append(",primary key (")
