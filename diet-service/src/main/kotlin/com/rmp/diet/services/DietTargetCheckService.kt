@@ -30,7 +30,7 @@ class DietTargetCheckService(di: DI): FsmService(di) {
                 .where { UserModel.id eq user.id }
                 .named("select-targets")
         }
-        redisEvent.switchOnDb(transaction, redisEvent.mutateState(DailyTargetCheckEventState.SELECTED_TARGETS))
+        redisEvent.switchOnDb(transaction, redisEvent.mutate(DailyTargetCheckEventState.SELECTED_TARGETS))
     }
 
     suspend fun selectDailyDishes(redisEvent: RedisEvent) {
@@ -51,9 +51,9 @@ class DietTargetCheckService(di: DI): FsmService(di) {
                     .named("select-daily-dishes")
             }
 
-            redisEvent.switchOnDb(transaction, redisEvent.mutateState(DailyTargetCheckEventState.SELECTED_DAILY_DISHES))
+            redisEvent.switchOnDb(transaction, redisEvent.mutate(DailyTargetCheckEventState.SELECTED_DAILY_DISHES))
         } ?: redisEvent.switchOn(TargetCheckResultDto(), AppConf.redis.diet,
-            redisEvent.mutateState(
+            redisEvent.mutate(
                 DailyTargetCheckEventState.CHECKED_DISHES))
     }
 
@@ -66,7 +66,7 @@ class DietTargetCheckService(di: DI): FsmService(di) {
                 .where { DishModel.id inList dishes.map { it[DishModel.id] } }
                 .named("select-calories")
         }
-        redisEvent.switchOnDb(transaction, redisEvent.mutateState(DailyTargetCheckEventState.SELECTED_CALORIES))
+        redisEvent.switchOnDb(transaction, redisEvent.mutate(DailyTargetCheckEventState.SELECTED_CALORIES))
     }
 
     suspend fun checkDishes(redisEvent: RedisEvent) {
@@ -77,7 +77,7 @@ class DietTargetCheckService(di: DI): FsmService(di) {
         val sum = calories.sumOf { it[DishModel.calories] }
 
         redisEvent.switchOn(TargetCheckResultDto(caloriesTarget < sum), AppConf.redis.diet,
-            redisEvent.mutateState(
+            redisEvent.mutate(
                 DailyTargetCheckEventState.CHECKED_DISHES
         ))
     }
@@ -102,9 +102,9 @@ class DietTargetCheckService(di: DI): FsmService(di) {
                     .named("select-daily-water")
             }
 
-            redisEvent.switchOnDb(transaction, redisEvent.mutateState(DailyTargetCheckEventState.SELECTED_DAILY_WATER, data))
+            redisEvent.switchOnDb(transaction, redisEvent.mutate(DailyTargetCheckEventState.SELECTED_DAILY_WATER, data))
         } ?: redisEvent.switchOn(data, AppConf.redis.diet,
-            redisEvent.mutateState(DailyTargetCheckEventState.CHECKED_WATER))
+            redisEvent.mutate(DailyTargetCheckEventState.CHECKED_WATER))
     }
 
 
@@ -118,7 +118,7 @@ class DietTargetCheckService(di: DI): FsmService(di) {
 
         data.water = waterTarget < sum
 
-        redisEvent.switchOn(data, AppConf.redis.diet, redisEvent.mutateState(
+        redisEvent.switchOn(data, AppConf.redis.diet, redisEvent.mutate(
             DailyTargetCheckEventState.CHECKED_WATER
         ))
     }

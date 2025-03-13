@@ -1,4 +1,4 @@
-package com.rmp.diet.actions.dish
+package com.rmp.diet.actions.dish.log
 
 import com.rmp.diet.services.DietLogService
 import com.rmp.lib.utils.redis.fsm.Fsm
