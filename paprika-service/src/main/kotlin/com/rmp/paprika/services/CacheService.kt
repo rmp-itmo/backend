@@ -95,7 +95,7 @@ class CacheService(di: DI) : FsmService(di) {
                     }.named("insert-new")
         }
 
-        redisEvent.switchOnDb(transaction, redisEvent.mutateState(UpdateCacheState.SAVE_DISHES, state))
+        redisEvent.switchOnDb(transaction, redisEvent.mutate(UpdateCacheState.SAVE_DISHES, state))
     }
 
     suspend fun saveDishes(redisEvent: RedisEvent) {
@@ -118,6 +118,6 @@ class CacheService(di: DI) : FsmService(di) {
             }.named("Insert-Cache-Dishes")
         }
 
-        redisEvent.switchOnDb(transaction, redisEvent.mutateState(UpdateCacheState.SAVED))
+        redisEvent.switchOnDb(transaction, redisEvent.mutate(UpdateCacheState.SAVED))
     }
 }

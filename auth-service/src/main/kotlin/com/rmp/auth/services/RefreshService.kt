@@ -25,7 +25,7 @@ class RefreshService(di: DI): FsmService(di) {
                 .named("select-user")
         }
 
-        redisEvent.switchOnDb(transaction, redisEvent.mutateState(RefreshEventState.VERIFY, authorizedUser))
+        redisEvent.switchOnDb(transaction, redisEvent.mutate(RefreshEventState.VERIFY, authorizedUser))
     }
 
     suspend fun updateLastLogin(redisEvent: RedisEvent, userId: Long) {
@@ -43,7 +43,7 @@ class RefreshService(di: DI): FsmService(di) {
                 .named("insert")
         }
 
-        redisEvent.switchOnDb(transaction, redisEvent.mutateState(RefreshEventState.UPDATED, AuthorizedUser(userId, loginAt)))
+        redisEvent.switchOnDb(transaction, redisEvent.mutate(RefreshEventState.UPDATED, AuthorizedUser(userId, loginAt)))
     }
 
     suspend fun verify(redisEvent: RedisEvent) {

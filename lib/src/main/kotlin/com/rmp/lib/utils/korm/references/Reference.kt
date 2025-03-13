@@ -7,5 +7,6 @@ data class Reference (
     val sourceColumn: Column<*>,
     val targetTable: IdTable,
     val deleteOption: ReferenceOption,
-    val updateOption: ReferenceOption
+    val updateOption: ReferenceOption,
+    val nullable: Boolean = false
 )

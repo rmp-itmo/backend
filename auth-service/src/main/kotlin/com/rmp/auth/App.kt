@@ -31,10 +31,26 @@ fun main() {
         bindSingleton { GetMeService(it) }
 
         bindSingleton {
-            FsmRouter.routing(it) {
+            FsmRouter.routing(AppConf.redis.auth, it) {
                 fsm(AuthFsm(it))
                 fsm(RefreshFsm(it))
                 fsm(GetMeFsm(it))
+
+/* -------------------- Exception handler usage example -------------------- */
+
+/*
+                handle<Exception> { exception ->
+                    Logger.debugException("Exception caught!", exception, "auth")
+
+                    // Use respond to send response to ApiService
+                    respond(InternalServerException("Internal server error!"))
+
+                    // Use respond service to event to other services
+                    respondService(AppConf.redis.serviceName) { event ->
+                        event.mutateState(...).mutateData(...)
+                    }
+                }
+*/
             }
         }
     }

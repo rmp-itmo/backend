@@ -25,7 +25,7 @@ fun main() {
         bindSingleton { LoggerService(it) }
 
         bindSingleton {
-            FsmRouter.routing(it) {
+            FsmRouter.routing(AppConf.redis.logger, it) {
                 fsm(LoggerFsm("log", it))
             }
         }

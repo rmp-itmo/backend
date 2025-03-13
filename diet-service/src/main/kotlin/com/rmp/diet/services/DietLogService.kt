@@ -37,7 +37,7 @@ class DietLogService(di: DI): FsmService(di) {
                     it[volume] = data.volume
                 }.named("insert-water-log")
         }
-        redisEvent.switchOnDb(transaction, redisEvent.mutateState(WaterLogEventState.UPLOADED, data))
+        redisEvent.switchOnDb(transaction, redisEvent.mutate(WaterLogEventState.UPLOADED, data))
     }
 
     suspend fun waterUploaded(redisEvent: RedisEvent) {
@@ -70,7 +70,7 @@ class DietLogService(di: DI): FsmService(di) {
 
         redisEvent.switchOnDb(
             transaction,
-            redisEvent.mutateState(if (data.id != null) DishLogEventState.CREATED else DishLogEventState.CREATE_DISH)
+            redisEvent.mutate(if (data.id != null) DishLogEventState.CREATED else DishLogEventState.CREATE_DISH)
         )
     }
 
@@ -103,7 +103,7 @@ class DietLogService(di: DI): FsmService(di) {
                     it[dish] = data[DishModel.id]
                 }.named("insert-dish-log")
         }
-        redisEvent.switchOnDb(transaction, redisEvent.mutateState(DishLogEventState.CREATED))
+        redisEvent.switchOnDb(transaction, redisEvent.mutate(DishLogEventState.CREATED))
 
     }
 

@@ -33,7 +33,7 @@ fun main() {
         bindSingleton { PaprikaService(it) }
 
         bindSingleton {
-            FsmRouter.routing(it) {
+            FsmRouter.routing(AppConf.redis.paprika, it) {
                 fsm(GenerateMealFsm(it))
                 fsm(GenerateMenuFsm(it))
                 fsm(UpdateCacheFsm(it))
@@ -57,7 +57,7 @@ fun main() {
                         router.process(redisEvent)
                     }
                 }
-            }, true, AppConf.redis.auth)
+            }, true, AppConf.redis.paprika)
         }
     }
 }
