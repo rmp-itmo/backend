@@ -6,5 +6,5 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class WaterLogUploadDto(
-    val volume: Float,
+    val volume: Double,
 ): SerializableClass

@@ -19,6 +19,13 @@ class UserController(override val di: DI) : KodeinController() {
                     call.process("user-upload-dish-log", AppConf.redis.diet)
                 }
             }
+            route("target") {
+                route("check") {
+                    get {
+                        call.process("user-daily-target-check", AppConf.redis.diet)
+                    }
+                }
+            }
         }
     }
 }

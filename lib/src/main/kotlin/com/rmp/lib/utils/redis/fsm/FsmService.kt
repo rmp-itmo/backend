@@ -29,7 +29,7 @@ abstract class FsmService(di: DI) : KodeinService(di) {
         data: T, service: String, state: RedisEventState = eventState
     ) = pubSubService.publish(mutateData(data).mutate(state), service)
 
-    suspend inline fun <reified T: SerializableClass> RedisEvent.switchOn(
+    suspend inline fun RedisEvent.switchOn(
         service: String, state: RedisEventState = eventState
     ) = pubSubService.publish(mutate(state), service)
 
