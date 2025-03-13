@@ -97,7 +97,7 @@ class SelectQueryBuilder<T: Table>(table: T): QueryBuilder(table) {
                 if (selectColumns.size >= 1)
                     append(selectColumns.joinToString(",") { it.fullQualifiedName })
                 else {
-                    selectColumns += table.columns.values
+                    selectColumns += table.columns.values.filterNot { it is EntityCount }
                     selectColumns += joins.map { tableJoin -> tableJoin.target.columns.filterNot { it.value is EntityCount }.values }.flatten()
                     append("*")
                 }

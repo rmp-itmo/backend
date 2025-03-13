@@ -30,7 +30,7 @@ fun main() {
         bindSingleton { PubSubService(AppConf.redis.diet, it) }
         bindSingleton { DietLogService(it) }
         bindSingleton {
-            FsmRouter.routing(it) {
+            FsmRouter.routing(AppConf.redis.diet, it) {
                 fsm(DishLogFsm(it))
                 fsm(WaterLogFsm(it))
                 fsm(DailyTargetCheckFsm(it))

@@ -9,7 +9,7 @@ import com.rmp.lib.utils.korm.references.ReferenceOption
 
 open class IdTable(tableName_: String): Table(tableName_) {
     val id: EntityId = EntityId(this, "id")
-    val entityCount: EntityCount = EntityCount(this, "count")
+    val entityCount: EntityCount = EntityCount(this, "count(*)")
 
     val references: MutableMap<IdTable, MutableList<Reference>> = mutableMapOf()
 

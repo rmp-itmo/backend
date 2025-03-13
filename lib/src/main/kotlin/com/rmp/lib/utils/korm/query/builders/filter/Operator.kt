@@ -8,22 +8,29 @@ class Operator(
 ) {
     private fun buildRecursive(): Pair<String, List<Any?>> {
         if (left == null && right == null) {
-            return Pair(expression!!, mutableListOf(param))
+            return if (expression != null && param != null) Pair(expression, mutableListOf(param))
+            else if (expression != null) Pair(expression, emptyList())
+            else Pair("", emptyList())
         }
 
         val (leftExp, leftParam) = left?.buildExpression() ?: return Pair("", mutableListOf())
-        println(leftExp)
-        println(leftParam)
 
         val (rightExp, rightParam) = right?.buildExpression() ?: return Pair("", mutableListOf())
-        println(rightExp)
-        println(rightParam)
 
-        return Pair("($leftExp) $expression ($rightExp)", leftParam + rightParam)
+        return if (leftExp == "")
+            Pair("($rightExp)", rightParam)
+        else if (rightExp == "")
+            Pair("($leftExp)", rightParam)
+        else
+            Pair("($leftExp) $expression ($rightExp)", leftParam + rightParam)
     }
 
     fun buildExpression(): Pair<String, List<Any?>> =
         buildRecursive()
+
+    override fun toString(): String {
+        return "Operator $left $expression $right"
+    }
 }
 
 infix fun Operator.and(other: Operator): Operator =

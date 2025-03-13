@@ -6,10 +6,16 @@ fun <T> Column<T?>.isNull(): Operator =
     Operator("${this.fullQualifiedName} is NULL")
 
 infix fun <T: Number, R: Number> Column<T>.inList(value: List<R>): Operator =
-    Operator("${this.fullQualifiedName} in (${value.joinToString(",") {"?"}}", value)
+    if (value.isEmpty())
+        Operator("${this.fullQualifiedName} != ${this.fullQualifiedName}")
+    else
+        Operator("${this.fullQualifiedName} in (${value.joinToString(",") {"?"}})", value)
 
 infix fun <T: Number, R: Number> Column<T>.notInList(value: List<R>): Operator =
-    Operator("${this.fullQualifiedName} not in (${value.joinToString(",") {"?"}}", value)
+    if (value.isEmpty())
+        Operator("${this.fullQualifiedName} != ${this.fullQualifiedName}")
+    else
+        Operator("${this.fullQualifiedName} not in (${value.joinToString(",") {"?"}})", value)
 
 infix fun <T: Number, R: Number> Column<T>.eq(value: R): Operator =
     Operator("${this.fullQualifiedName} = ?", value)

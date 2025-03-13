@@ -30,22 +30,22 @@ class CacheService(di: DI) : FsmService(di) {
     }
 
     fun findMeal(paprikaInputDto: PaprikaInputDto, index: Int): SelectQueryBuilder<*> {
-        val eatingOptions = paprikaInputDto.meals[index]
+        val mealOptions = paprikaInputDto.meals[index]
         val params = ParamsManager.process {
-            withSize(eatingOptions.size)
+            withSize(mealOptions.size)
             fromPaprikaInput(paprikaInputDto)
         }.params
 
         return CacheModel.select().where {
-            createMinMaxCond(params.minProtein, params.maxProtein, CacheModel.protein).apply { println("Protein $this") } and
-            createMinMaxCond(params.minFat, params.maxFat, CacheModel.fat).apply { println("Fat $this") } and
+            createMinMaxCond(params.minProtein, params.maxProtein, CacheModel.protein) and
+            createMinMaxCond(params.minFat, params.maxFat, CacheModel.fat) and
             createMinMaxCond(
                 params.minCarbohydrates,
                 params.maxCarbohydrates,
                 CacheModel.carbohydrates
-            ).apply { println("Carbo $this") } and
-            createMinMaxCond(params.calories * 0.99, params.calories * 1.01, CacheModel.calories).apply { println("Calories $this") } and
-            dishCountCond(eatingOptions.dishCount).apply { println("Count $this") }
+            ) and
+            createMinMaxCond(params.calories * 0.99, params.calories * 1.01, CacheModel.calories) and
+            dishCountCond(mealOptions.dishCount)
         }
     }
 
@@ -72,10 +72,11 @@ class CacheService(di: DI) : FsmService(di) {
         val newCache = state.generated.filter { it.cacheId == null }
 
         val transaction = newTransaction {
-            this add CacheModel.update(CacheModel.id inList ids) {
-                CacheModel.useTimesFromCreation += 1
-                CacheModel.useTimesFromLastScrap += 1
-            }.named("update-exist")
+            if (ids.isNotEmpty())
+                this add CacheModel.update(CacheModel.id inList ids) {
+                    CacheModel.useTimesFromCreation += 1
+                    CacheModel.useTimesFromLastScrap += 1
+                }.named("update-exist")
 
             if (newCache.isNotEmpty())
                 this add CacheModel.batchInsert(newCache) {
@@ -105,8 +106,8 @@ class CacheService(di: DI) : FsmService(di) {
         val newCache = state.generated.filter { it.cacheId == null }
 
         val dishes: List<Pair<Long, Long>> =
-            newCache.map {
-                it.dishes.mapIndexed { index, dish ->
+            newCache.mapIndexed { index, it ->
+                it.dishes.map { dish ->
                     newCacheEntries[index][CacheModel.id] to dish.id
                 }
             }.flatten()

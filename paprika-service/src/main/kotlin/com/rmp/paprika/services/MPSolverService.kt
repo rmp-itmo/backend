@@ -8,6 +8,7 @@ import com.google.ortools.linearsolver.MPVariable
 import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.utils.korm.Row
 import com.rmp.lib.utils.korm.column.Column
+import com.rmp.lib.utils.log.Logger
 import com.rmp.paprika.dto.mpsolver.ConstraintDto
 
 /*
@@ -45,7 +46,6 @@ class MPSolverService internal constructor() {
     }
     infix fun setConstraint(inject: ConstraintDto.() -> Unit) {
         val constraint = ConstraintDto().apply(inject)
-        println("New constraint $constraint")
         this.constraints.add(constraint)
     }
     infix fun constraints(constraints: List<ConstraintDto>) {
@@ -58,23 +58,15 @@ class MPSolverService internal constructor() {
         this.objectiveKey = objectiveKey as Column<Number>
     }
 
-    private fun mpVariables(): List<MPVariable> {
-        println("Start variables setup")
-        val vars = data.map {
+    private fun mpVariables(): List<MPVariable> =
+        data.map {
             solver.makeBoolVar(it[DishModel.name])
         }
-        println("Variables setup finished")
-        return vars
-    }
 
-    private fun mpConstraints(): List<MPConstraint> {
-        println("Start constraints setup")
-        val consts = constraints.map {
+    private fun mpConstraints(): List<MPConstraint> =
+        constraints.map {
             solver.makeConstraint(it.bottom, it.top, it.name)
         }
-        println("Constraints setup finished")
-        return consts
-    }
 
     private fun mpObjective() = solver.objective().apply {
             if (solveDirection == SolveDirection.MAXIMIZE)
@@ -83,7 +75,7 @@ class MPSolverService internal constructor() {
                 setMinimization()
         }
 
-    private fun setCoefficients(constraints: List<MPConstraint>, variables: List<MPVariable>, objective: MPObjective) {
+    private fun setCoefficients(constraints: List<MPConstraint>, variables: List<MPVariable>, objective: MPObjective) =
         variables.mapIndexed { varIndex, variable ->
             val dish = data[varIndex]
             constraints.mapIndexed { constIndex, mpConstraint -> run {
@@ -96,7 +88,6 @@ class MPSolverService internal constructor() {
             }
             objective.setCoefficient(variable, dish[objectiveKey].toDouble())
         }
-    }
 
     private fun initialize(): List<MPVariable> {
         if (itemsInAnswer > 0)
@@ -110,27 +101,26 @@ class MPSolverService internal constructor() {
         Loader.loadNativeLibraries()
         this.solver = MPSolver.createSolver("SCIP")
 //        this.solver.setNumThreads(4)
-        println("Start variables and constraints calculation")
+
         val variables = mpVariables()
 
         setCoefficients(mpConstraints(), variables, mpObjective())
-        println("Variables have been set")
 
         return variables
     }
 
     fun solve(): List<Row> {
         val varsOnSolve = initialize()
-        println("Start solving. Data size: ${data.size}")
+        Logger.debug("Start solving. Data size: ${data.size}", "mp-solver")
         val result = solver.solve()
 
         // Check that the problem has an optimal solution.
         if (result != MPSolver.ResultStatus.OPTIMAL) {
-            println("The problem does not have an optimal solution!")
+            Logger.debug("The problem does not have an optimal solution!", "mp-solver")
             if (result == MPSolver.ResultStatus.FEASIBLE) {
-                println("A potentially suboptimal solution was found.")
+                Logger.debug("The solver could not solve the problem.", "mp-solver")
             } else {
-                println("The solver could not solve the problem.")
+                Logger.debug("The solver could not solve the problem.", "mp-solver")
                 return listOf()
             }
         }

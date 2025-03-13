@@ -30,29 +30,19 @@ class UltimateSerializer : KSerializer<Any?> {
     private fun jsonPrimitiveToAny(value: JsonPrimitive): Any? {
         val content = value.content
 
-        if (value.isString){
-            if (content.equals("null", ignoreCase = true)){
-                return null
-            }
-            if (content.equals("true", ignoreCase = true)){
-                return true
-            }
-            if (content.equals("false", ignoreCase = true)){
-                return false
-            }
+        if (value.isString) return content
 
-            return content
+        content.toLongOrNull().let {
+            if (it != null) return it
         }
 
-        val longValue = content.toLongOrNull()
-        if (longValue!=null){
-            return longValue
+        content.toFloatOrNull().let {
+            if (it != null) return it
         }
 
-        val floatValue = content.toFloatOrNull()
-        if (floatValue!=null){
-            return floatValue
-        }
+        if (content.equals("true", ignoreCase = true)) return true
+        if (content.equals("false", ignoreCase = true)) return false
+        if (content.equals("null", ignoreCase = true)) return null
 
         throw Exception("Json serialize error for $content")
     }

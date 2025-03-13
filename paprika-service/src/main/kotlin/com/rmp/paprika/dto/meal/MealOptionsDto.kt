@@ -10,10 +10,11 @@ data class MealOptionsDto (
 //    val time: Int,
     /*
         * super easy = 1
-        * easy = 2
-        * middle = 3
-        * hard = 4
+        * easy = 2 + super easy
+        * middle = 3 + easy + super easy
+        * hard = 4 + easy + etc.
+        * Any = 1000
     */
-    val difficulty: Int,
+    val difficulty: Int = 1000,
     val dishCount: Int? = null
 )
