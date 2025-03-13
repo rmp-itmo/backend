@@ -61,7 +61,6 @@ class ParamsManager internal constructor() {
         if (params == null)
             return
         this.validateParams(params)
-        println("Get from params: $params")
         this.params = ParametersDto(
             calories = params.calories * mealsCoef,
 
@@ -102,32 +101,32 @@ class ParamsManager internal constructor() {
         )
     }
 
-    operator fun invoke(paprikaInputDto: PaprikaInputDto, eatingsCoef: Double = 1.0): ParametersDto {
+    operator fun invoke(paprikaInputDto: PaprikaInputDto, mealCoef: Double = 1.0): ParametersDto {
         return if (paprikaInputDto.calories != null) {
             ParametersDto(
-                calories = paprikaInputDto.calories * eatingsCoef,
+                calories = paprikaInputDto.calories * mealCoef,
 
                 minProtein = 0.0,
-                maxProtein = paprikaInputDto.calories / 4 * eatingsCoef,
+                maxProtein = paprikaInputDto.calories / 4 * mealCoef,
 
                 minFat = 0.0,
-                maxFat = paprikaInputDto.calories / 9 * eatingsCoef,
+                maxFat = paprikaInputDto.calories / 9 * mealCoef,
 
                 minCarbohydrates = 0.0,
-                maxCarbohydrates = paprikaInputDto.calories / 4 * eatingsCoef,
+                maxCarbohydrates = paprikaInputDto.calories / 4 * mealCoef,
             )
         } else
             ParametersDto(
-                calories = paprikaInputDto.params!!.calories * eatingsCoef,
+                calories = paprikaInputDto.params!!.calories * mealCoef,
 
-                minProtein = paprikaInputDto.params.minProtein * eatingsCoef,
-                maxProtein = paprikaInputDto.params.maxProtein * eatingsCoef,
+                minProtein = paprikaInputDto.params.minProtein * mealCoef,
+                maxProtein = paprikaInputDto.params.maxProtein * mealCoef,
 
-                minFat = paprikaInputDto.params.minFat * eatingsCoef,
-                maxFat = paprikaInputDto.params.maxFat * eatingsCoef,
+                minFat = paprikaInputDto.params.minFat * mealCoef,
+                maxFat = paprikaInputDto.params.maxFat * mealCoef,
 
-                minCarbohydrates = paprikaInputDto.params.minCarbohydrates * eatingsCoef,
-                maxCarbohydrates = paprikaInputDto.params.maxCarbohydrates * eatingsCoef,
+                minCarbohydrates = paprikaInputDto.params.minCarbohydrates * mealCoef,
+                maxCarbohydrates = paprikaInputDto.params.maxCarbohydrates * mealCoef,
             )
     }
 }

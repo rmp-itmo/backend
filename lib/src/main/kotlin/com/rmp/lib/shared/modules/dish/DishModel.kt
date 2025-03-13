@@ -14,6 +14,6 @@ object DishModel: IdTable("dish") {
     val carbohydrates = double("carbohydrates")
     val cookTime = int("cook_time")
     val type = reference("type", DishTypeModel)
-    val author = reference("author", UserModel)
+    val author = reference("author", UserModel).nullable().default(null)
     val private = bool("private").default(true)
 }

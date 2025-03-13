@@ -153,12 +153,31 @@ object Logger {
     }
 
     fun traceEventReceived(redisEvent: RedisEvent) {
-        logger["trace"]!!.info(
-            "Event received from ${redisEvent.from} \n" +
-                    "${redisEvent.eventType}.${redisEvent.eventState.state} <${redisEvent.action}> {\n" +
-                    "\tData: ${redisEvent.data} \n" +
-                    "\tState: ${redisEvent.eventState.stateData} \n" +
-                    "}"
-        )
+//        if (redisEvent.from == AppConf.redis.db)
+            logger["trace"]!!.info(
+                "Event received from ${redisEvent.from} \n" +
+                        "${redisEvent.eventType}.${redisEvent.eventState.state} <${redisEvent.action}> {\n" +
+                        "\tData: ${
+                            if (redisEvent.data.length > 201)
+                                redisEvent.data.slice(0..200)
+                            else
+                                redisEvent.data
+                        } \n" +
+                        "\tState: ${
+//                            if (redisEvent.eventState.stateData != null && redisEvent.eventState.stateData.length > 201)
+//                                redisEvent.eventState.stateData.slice(0..200)
+//                            else
+                                redisEvent.eventState.stateData
+                        } \n" +
+                        "}"
+            )
+//        else
+//            logger["trace"]!!.info(
+//                "Event received from ${redisEvent.from} \n" +
+//                        "${redisEvent.eventType}.${redisEvent.eventState.state} <${redisEvent.action}> {\n" +
+//                        "\tData: ${redisEvent.data} \n" +
+//                        "\tState: ${redisEvent.eventState.stateData} \n" +
+//                        "}"
+//            )
     }
 }

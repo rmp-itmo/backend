@@ -5,7 +5,6 @@ import com.rmp.auth.dto.AuthInputDto
 import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.korm.column.eq
-import com.rmp.lib.utils.korm.insert
 import com.rmp.lib.utils.korm.query.batch.newAutoCommitTransaction
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
@@ -20,11 +19,6 @@ class AuthService(di: DI): FsmService(di) {
         val data = redisEvent.parseData<AuthInputDto>() ?: throw ForbiddenException()
 
         val transaction = newAutoCommitTransaction {
-            this add UserModel.insert {
-                it[id] = 1
-                it[login] = "Login"
-                it[password] = "password"
-            }
             this add UserModel
                 .select(UserModel.id, UserModel.login, UserModel.password)
                 .where { UserModel.login eq data.login }

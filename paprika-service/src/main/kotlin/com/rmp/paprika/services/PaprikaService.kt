@@ -24,7 +24,7 @@ import com.rmp.paprika.dto.meal.MealOutputDto
 import org.kodein.di.DI
 import org.kodein.di.instance
 
-class PaprikaService(di: DI) : FsmService(di) {
+class PaprikaService(di: DI) : FsmService(di, AppConf.redis.paprika) {
     private val dishService: DishService by instance()
     private val cacheService: CacheService by instance()
     /*
@@ -32,7 +32,7 @@ class PaprikaService(di: DI) : FsmService(di) {
         0.25 means that the delta of generated (or provided) params must be in range of [ calories * 0.75, calories * 1.25 ]
         In the other words it means amount of acceptable calculation error
      */
-    private val solverDelta = 0.25
+    private val solverDelta = 0.15
 
     private fun List<Row>.countMacronutrients(): MacronutrientsDto =
         map {
@@ -99,7 +99,7 @@ class PaprikaService(di: DI) : FsmService(di) {
 
         return PaprikaOutputDto(
             diet = paprikaInputDto.diet,
-            eatings = meals,
+            meals = meals,
             params = params,
             idealParams = ParamsManager.process {
                 fromPaprikaInput(paprikaInputDto, solverDelta)
@@ -123,11 +123,11 @@ class PaprikaService(di: DI) : FsmService(di) {
     suspend fun generateMeal(redisEvent: RedisEvent) {
         val state = redisEvent.parseState<GenerateMenuStateDto>() ?: throw InternalServerException("Event state corrupted")
 
-        if (state.index >= state.paprikaInputDto.meals.lastIndex)
-            redisEvent.mutate(redisEvent.mutate(GenerateMenuState.MEAL_GENERATED))
+        if (state.index > state.paprikaInputDto.meals.lastIndex)
+            redisEvent.switch(AppConf.redis.paprika, redisEvent.mutate(GenerateMenuState.MEAL_GENERATED))
         else {
             val generateMeal = redisEvent.copyId("generate-meal")
-            redisEvent.switch(
+            generateMeal.switch(
                 AppConf.redis.paprika,
                 generateMeal.mutate(GenerateMealState.INIT, state.clearMealState())
             )
@@ -140,7 +140,7 @@ class PaprikaService(di: DI) : FsmService(di) {
         if (state.index >= state.paprikaInputDto.meals.lastIndex) {
             if (state.generated.size < state.paprikaInputDto.meals.size)
                 redisEvent.switchOnApi(
-                    CantSolveException("Solution not found")
+                    CantSolveException()
                 )
             else {
                 updateCache(redisEvent, state)
@@ -193,27 +193,24 @@ class PaprikaService(di: DI) : FsmService(di) {
 
         mealSolved.switch(
             AppConf.redis.paprika,
-            redisEvent.mutate(GenerateMenuState.MEAL_GENERATED, state.appendMeal(mealOutput))
+            mealSolved.mutate(GenerateMenuState.MEAL_GENERATED, state.appendMeal(mealOutput))
         )
     }
 
     suspend fun initMealSolution(redisEvent: RedisEvent) {
         val state = redisEvent.parseState<GenerateMenuStateDto>() ?: throw InternalServerException("Event state corrupted")
 
-        if (state.offset == 1L) {
-            val transaction = newAutoCommitTransaction {
-                this add cacheService
-                            .findIncompatible(state.paprikaInputDto.excludeDishes)
-                            .named("excluded-cache-entries")
+        val transaction = newAutoCommitTransaction {
+            this add cacheService
+                        .findIncompatible(state.paprikaInputDto.excludeDishes)
+                        .named("excluded-cache-entries")
 
-                this add cacheService
-                            .findMeal(state.paprikaInputDto, state.index)
-                            .named("cache-entries")
-            }
-            redisEvent.switchOnDb(transaction, redisEvent.mutate(GenerateMealState.CACHE_FETCHED))
-            return
+            this add cacheService
+                        .findMeal(state.paprikaInputDto, state.index)
+                        .named("cache-entries")
         }
-        switchMealSolvingToDishFetch(redisEvent, state)
+
+        redisEvent.switchOnDb(transaction, redisEvent.mutate(GenerateMealState.CACHE_FETCHED))
     }
 
     suspend fun cacheFetched(redisEvent: RedisEvent) {
@@ -228,7 +225,7 @@ class PaprikaService(di: DI) : FsmService(di) {
         else {
             val acceptableEntry = cacheEntries.firstOrNull {
                 it[CacheModel.id] !in excludedEntries
-            } ?: return redisEvent.switch(AppConf.redis.paprika, redisEvent.mutate(GenerateMealState.SEARCH_DISHES))
+            } ?: return switchMealSolvingToDishFetch(redisEvent, state)
 
             val transaction = newAutoCommitTransaction {
                 this add cacheService

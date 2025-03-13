@@ -1,6 +1,7 @@
 package com.rmp.paprika.services
 
 import com.rmp.lib.shared.modules.dish.DishModel
+import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.column.lessEq
 import com.rmp.lib.utils.korm.column.notInList
 import com.rmp.lib.utils.korm.query.builders.SelectQueryBuilder
@@ -23,7 +24,8 @@ class DishService(override val di: DI): FsmService(di) {
         }
 
     private fun createDishByParamsCond(mealOptionsDto: MealOptionsDto, paprikaInputDto: PaprikaInputDto): Operator =
-        DishModel.id notInList paprikaInputDto.excludeDishes and
+        (DishModel.id notInList paprikaInputDto.excludeDishes) and
+        (DishModel.type eq mealOptionsDto.type) and
         difficultyCond(mealOptionsDto.difficulty)
 
     fun getDishesIdByEatingParams(mealOptionsDto: MealOptionsDto, paprikaInputDto: PaprikaInputDto): SelectQueryBuilder<*> =
