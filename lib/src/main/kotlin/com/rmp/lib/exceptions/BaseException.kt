@@ -7,5 +7,5 @@ import kotlinx.serialization.Serializable
 sealed class BaseException (
     val httpStatusCode: Int,
     val httpStatusText: String,
-    var data: String? = null
+    open var data: String? = null
 ): Exception(data), SerializableClass

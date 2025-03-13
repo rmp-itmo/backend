@@ -27,7 +27,7 @@ import org.kodein.di.instance
 
 fun main() {
     val kodein = DI {
-        bindSingleton { PubSubService(AppConf.redis.auth, it) }
+        bindSingleton { PubSubService(AppConf.redis.paprika, it) }
         bindSingleton { CacheService(it) }
         bindSingleton { DishService(it) }
         bindSingleton { PaprikaService(it) }

@@ -10,8 +10,9 @@ import com.rmp.lib.utils.redis.SerializableClass
 import org.kodein.di.DI
 import org.kodein.di.instance
 
-abstract class FsmService(di: DI) : KodeinService(di) {
+abstract class FsmService(di: DI, val channel: String = "service") : KodeinService(di) {
     val pubSubService: PubSubService by instance()
+    val fsmRouter: FsmRouter by instance()
 
     suspend inline fun <reified T: Query> RedisEvent.switchOnDb(
         queryDto: T, state: RedisEventState = eventState
@@ -23,15 +24,22 @@ abstract class FsmService(di: DI) : KodeinService(di) {
 
     suspend inline fun RedisEvent.switchOn(
         service: String
-    ) = pubSubService.publish(this, service)
+    ) {
+        if (service == channel)
+            fsmRouter.process(this)
+        else
+            pubSubService.publish(this, service)
+    }
 
     suspend inline fun <reified T: SerializableClass> RedisEvent.switchOn(
         data: T, service: String, state: RedisEventState = eventState
-    ) = pubSubService.publish(mutateData(data).mutate(state), service)
-
-    suspend inline fun RedisEvent.switchOn(
-        service: String, state: RedisEventState = eventState
-    ) = pubSubService.publish(mutate(state), service)
+    ) {
+        val updated = mutateData(data).mutate(state)
+        if (service == channel)
+            fsmRouter.process(updated)
+        else
+            pubSubService.publish(updated, service)
+    }
 
     suspend fun RedisEvent.switch(
         service: String, state: RedisEventState = eventState

@@ -53,8 +53,9 @@ class Row private constructor() {
     }
 
     operator fun <T> get(column: Column<T>): T {
-        if (!data.containsKey(column))
+        if (!data.containsKey(column)) {
             throw Exception("Unknown column")
+        }
         return data[column]?.let { column.type.readValue(it) } ?: throw Exception("Unknown column")
     }
 

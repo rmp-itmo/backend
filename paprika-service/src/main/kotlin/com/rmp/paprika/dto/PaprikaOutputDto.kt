@@ -10,7 +10,7 @@ import kotlinx.serialization.Transient
 @Serializable
 data class PaprikaOutputDto (
     @Transient val diet: Int = 1,
-    val eatings: List<MealOutputDto>,
+    val meals: List<MealOutputDto>,
     val params: MacronutrientsDto,
     val idealParams: ParametersDto
 ): SerializableClass
