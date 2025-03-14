@@ -79,7 +79,7 @@ class CacheService(di: DI) : FsmService(di) {
                 }.named("update-exist")
 
             if (newCache.isNotEmpty())
-                this add CacheModel.batchInsert(newCache) {
+                this add CacheModel.batchInsert(newCache) { it, _ ->
                         this[CacheModel.calories] = it.idealParams?.calories
                         this[CacheModel.protein] = it.idealParams?.protein
                         this[CacheModel.fat] = it.idealParams?.fat
@@ -113,7 +113,7 @@ class CacheService(di: DI) : FsmService(di) {
             }.flatten()
 
         val transaction = autoCommitTransaction {
-            this add CacheToDishModel.batchInsert(dishes) { (cache, dish) ->
+            this add CacheToDishModel.batchInsert(dishes) { (cache, dish), _ ->
                 this[CacheToDishModel.dish] = dish
                 this[CacheToDishModel.mealCache] = cache
             }.named("Insert-Cache-Dishes")

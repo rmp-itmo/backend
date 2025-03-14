@@ -2,7 +2,7 @@ package com.rmp.diet.services
 
 import com.rmp.diet.actions.dish.log.DishLogEventState
 import com.rmp.diet.actions.water.WaterLogEventState
-import com.rmp.diet.dto.dish.DishDto
+import com.rmp.diet.dto.dish.CreateDishDto
 import com.rmp.diet.dto.dish.log.DishLogUploadDto
 import com.rmp.diet.dto.dish.log.DishLogOutputDto
 import com.rmp.diet.dto.water.WaterLogOutputDto
@@ -20,7 +20,7 @@ import org.kodein.di.DI
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 
-class DietLogService(di: DI): FsmService(di) {
+class DietLogService(di: DI): FsmService(di, AppConf.redis.diet) {
     private val offset = AppConf.zoneOffset
 
     // Water Log //
@@ -74,7 +74,7 @@ class DietLogService(di: DI): FsmService(di) {
         )
     }
 
-    private fun createDishTransaction(dish: DishDto, userId: Long): BatchQuery {
+    private fun createDishTransaction(dish: CreateDishDto, userId: Long): BatchQuery {
         return newAutoCommitTransaction {
             this add DishModel
                 .insert {

@@ -12,6 +12,14 @@ class UserController(override val di: DI) : KodeinController() {
     override fun Route.registerRoutes() {
         authenticate("default") {
             route("users") {
+                route("menu") {
+                    post {
+                        call.process("set-user-menu", AppConf.redis.diet)
+                    }
+                    get {
+                        call.process("get-user-menu", AppConf.redis.diet)
+                    }
+                }
                 route("log") {
                     post("water") {
                         call.process("user-upload-water-log", AppConf.redis.diet)

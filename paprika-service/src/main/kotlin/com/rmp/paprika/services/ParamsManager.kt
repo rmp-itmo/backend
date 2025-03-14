@@ -2,7 +2,7 @@ package com.rmp.paprika.services
 
 import com.rmp.lib.exceptions.CantSolveException
 import com.rmp.paprika.dto.PaprikaInputDto
-import com.rmp.paprika.dto.meal.ParametersDto
+import com.rmp.paprika.dto.mpsolver.ParametersDto
 
 class ParamsManager internal constructor() {
     lateinit var params: ParametersDto

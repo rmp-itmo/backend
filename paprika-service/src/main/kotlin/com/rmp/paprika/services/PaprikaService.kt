@@ -34,6 +34,21 @@ class PaprikaService(di: DI) : FsmService(di, AppConf.redis.paprika) {
      */
     private val solverDelta = 0.15
 
+
+    private fun List<Row>.toDto(): List<DishDto> = map {
+        DishDto(
+            it[DishModel.id],
+            it[DishModel.name],
+            it[DishModel.imageUrl],
+            it[DishModel.calories],
+            it[DishModel.protein],
+            it[DishModel.fat],
+            it[DishModel.carbohydrates],
+            it[DishModel.cookTime],
+            it[DishModel.type]
+        )
+    }
+
     private fun List<Row>.countMacronutrients(): MacronutrientsDto =
         map {
             MacronutrientsDto(
@@ -52,20 +67,6 @@ class PaprikaService(di: DI) : FsmService(di, AppConf.redis.paprika) {
                     )
                 }
         }
-
-    private fun List<Row>.toDto(): List<DishDto> = map {
-        DishDto(
-            it[DishModel.id],
-            it[DishModel.name],
-            it[DishModel.imageUrl],
-            it[DishModel.calories],
-            it[DishModel.protein],
-            it[DishModel.fat],
-            it[DishModel.carbohydrates],
-            it[DishModel.cookTime],
-            it[DishModel.type]
-        )
-    }
 
     /*
 

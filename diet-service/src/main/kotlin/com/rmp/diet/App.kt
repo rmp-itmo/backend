@@ -4,14 +4,20 @@ import com.rmp.diet.actions.dish.log.DishLogFsm
 import com.rmp.diet.actions.dish.service.create.DishServiceCreateFsm
 import com.rmp.diet.actions.dish.service.get.DishServiceGetAllFsm
 import com.rmp.diet.actions.target.DailyTargetCheckFsm
+import com.rmp.diet.actions.user.menu.get.GetUserMenuFsm
+import com.rmp.diet.actions.user.menu.set.SetUserMenuFsm
 import com.rmp.diet.actions.water.WaterLogFsm
 import com.rmp.diet.services.DietLogService
+import com.rmp.diet.services.DietTargetCheckService
 import com.rmp.diet.services.DishService
+import com.rmp.diet.services.MenuService
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.modules.diet.DietDishLogModel
 import com.rmp.lib.shared.modules.diet.DietWaterLogModel
 import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.shared.modules.dish.DishTypeModel
+import com.rmp.lib.shared.modules.dish.UserMenuItem
+import com.rmp.lib.shared.modules.dish.UserMenuModel
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.kodein.bindSingleton
 import com.rmp.lib.utils.korm.DbType
@@ -32,8 +38,10 @@ fun main() {
     val kodein = DI {
         bindSingleton { PubSubService(AppConf.redis.diet, it) }
         bindSingleton { DietLogService(it) }
-        bindSingleton { DietLogService(it) }
+        bindSingleton { DietTargetCheckService(it) }
         bindSingleton { DishService(it) }
+        bindSingleton { MenuService(it) }
+
         bindSingleton {
             FsmRouter.routing(AppConf.redis.diet, it) {
                 fsm(DishLogFsm(it))
@@ -41,6 +49,8 @@ fun main() {
                 fsm(DailyTargetCheckFsm(it))
                 fsm(DishServiceCreateFsm(it))
                 fsm(DishServiceGetAllFsm(it))
+                fsm(SetUserMenuFsm(it))
+                fsm(GetUserMenuFsm(it))
             }
         }
     }
@@ -49,6 +59,7 @@ fun main() {
     TableRegister.register(DbType.PGSQL, UserModel)
     TableRegister.register(DbType.PGSQL, DishModel, DishTypeModel)
     TableRegister.register(DbType.PGSQL, DietDishLogModel, DietWaterLogModel)
+    TableRegister.register(DbType.PGSQL, UserMenuModel, UserMenuItem)
 
     val router by kodein.instance<FsmRouter>()
 
