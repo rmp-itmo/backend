@@ -8,6 +8,7 @@ import com.rmp.diet.actions.user.menu.get.GetUserMenuFsm
 import com.rmp.diet.actions.user.menu.set.SetUserMenuFsm
 import com.rmp.diet.actions.water.WaterLogFsm
 import com.rmp.diet.services.DietLogService
+import com.rmp.diet.services.DietTargetCheckService
 import com.rmp.diet.services.DishService
 import com.rmp.diet.services.MenuService
 import com.rmp.lib.shared.conf.AppConf
@@ -37,6 +38,7 @@ fun main() {
     val kodein = DI {
         bindSingleton { PubSubService(AppConf.redis.diet, it) }
         bindSingleton { DietLogService(it) }
+        bindSingleton { DietTargetCheckService(it) }
         bindSingleton { DishService(it) }
         bindSingleton { MenuService(it) }
 
