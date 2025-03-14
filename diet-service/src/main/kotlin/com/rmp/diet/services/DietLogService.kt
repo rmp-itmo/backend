@@ -33,7 +33,7 @@ class DietLogService(di: DI): FsmService(di, AppConf.redis.diet) {
             this add DietWaterLogModel
                 .insert {
                     it[userId] = user.id
-                    it[createdAt] = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(offset))
+                    it[time] = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(offset))
                     it[volume] = data.volume
                 }.named("insert-water-log")
         }
@@ -60,7 +60,7 @@ class DietLogService(di: DI): FsmService(di, AppConf.redis.diet) {
                 this add DietDishLogModel
                     .insert {
                         it[userId] = user.id
-                        it[createdAt] = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(offset))
+                        it[time] = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(offset))
                         it[dish] = data.id
                     }.named("insert-dish-log")
             }
@@ -101,7 +101,7 @@ class DietLogService(di: DI): FsmService(di, AppConf.redis.diet) {
             this add DietDishLogModel
                 .insert {
                     it[userId] = user.id
-                    it[createdAt] = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(offset))
+                    it[time] = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(offset))
                     it[dish] = data[DishModel.id]
                 }.named("insert-dish-log")
         }

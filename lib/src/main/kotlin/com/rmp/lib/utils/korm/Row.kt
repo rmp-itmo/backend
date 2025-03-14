@@ -52,11 +52,12 @@ class Row private constructor() {
         }
     }
 
+    @Suppress("UNCHECKED_CAST")
     operator fun <T> get(column: Column<T>): T {
         if (!data.containsKey(column)) {
             throw Exception("Unknown column")
         }
-        return data[column]?.let { column.type.readValue(it) } ?: throw Exception("Unknown column")
+        return data[column]?.let { column.type.readValue(it) } as T
     }
 
     operator fun <T> set(column: Column<T>, value: T?) {
