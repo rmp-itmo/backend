@@ -1,6 +1,6 @@
 package com.rmp.diet.services
 
-import com.rmp.diet.actions.dish.DishLogEventState
+import com.rmp.diet.actions.dish.log.DishLogEventState
 import com.rmp.diet.actions.water.WaterLogEventState
 import com.rmp.diet.dto.dish.DishDto
 import com.rmp.diet.dto.dish.log.DishLogUploadDto
@@ -83,10 +83,12 @@ class DietLogService(di: DI): FsmService(di) {
                     it[portionsCount] = dish.portionsCount
                     it[imageUrl] = "" // Нет реализации загрузки фотографий
                     it[calories] = dish.calories
+                    it[protein] = dish.protein
                     it[fat] = dish.fat
                     it[carbohydrates] = dish.carbohydrates
                     it[cookTime] = dish.timeToCook
                     it[author] = userId
+                    it[type] = dish.typeId
                 }.named("insert-dish")
         }
     }
