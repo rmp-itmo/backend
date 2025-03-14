@@ -1,4 +1,4 @@
-package com.rmp.api.utils
+package com.rmp.api.utils.api
 
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.modules.auth.dto.AuthorizedUser

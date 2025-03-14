@@ -1,4 +1,4 @@
-package com.rmp.paprika.dto.meal
+package com.rmp.paprika.dto.mpsolver
 
 import com.rmp.lib.shared.modules.paprika.CacheModel
 import com.rmp.lib.utils.korm.Row

@@ -1,18 +1,16 @@
-package com.rmp.paprika.dto.dish
+package com.rmp.diet.dto.dish
 
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class DishDto (
-    val id: Long,
+data class CreateDishDto (
     val name: String,
-    val logo: String,
-
+    val description: String,
+    val portionsCount: Int,
     val calories: Double,
     val protein: Double,
     val fat: Double,
     val carbohydrates: Double,
-
     val timeToCook: Int,
     val typeId: Long,
 )

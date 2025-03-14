@@ -30,7 +30,6 @@ abstract class RedisSubscriber: AbstractKredsSubscriber() {
     }
 
     override fun onMessage(channel: String, message: String) {
-
         val redisEvent = try {
             val event = Json.serializer.decodeFromString<RedisEvent>(message)
             Logger.traceEventReceived(event)

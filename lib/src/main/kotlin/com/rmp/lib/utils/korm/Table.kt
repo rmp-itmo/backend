@@ -60,10 +60,10 @@ open class Table(val tableName_: String) {
             filterExpression = filter
         }.execute()
 
-    fun <T> batchInsert(collection: Collection<T>, processor: Row.(item: T) -> Unit): QueryDto =
-        InsertQueryBuilder(this).execute(collection.map {
+    fun <T> batchInsert(collection: Collection<T>, processor: Row.(item: T, idx: Int) -> Unit): QueryDto =
+        InsertQueryBuilder(this).execute(collection.mapIndexed { idx, it ->
             val row = Row.build{}
-            processor.invoke(row, it)
+            processor.invoke(row, it, idx)
             row
         })
 }

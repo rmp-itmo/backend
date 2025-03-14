@@ -5,6 +5,8 @@ import com.rmp.lib.shared.modules.diet.DietDishLogModel
 import com.rmp.lib.shared.modules.diet.DietWaterLogModel
 import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.shared.modules.dish.DishTypeModel
+import com.rmp.lib.shared.modules.dish.UserMenuItem
+import com.rmp.lib.shared.modules.dish.UserMenuModel
 import com.rmp.lib.shared.modules.paprika.CacheModel
 import com.rmp.lib.shared.modules.paprika.CacheToDishModel
 import com.rmp.lib.shared.modules.user.UserLoginModel
@@ -38,6 +40,7 @@ fun main() {
     TableRegister.register(DbType.PGSQL, DishTypeModel, DishModel)
     TableRegister.register(DbType.PGSQL, CacheModel, CacheToDishModel)
     TableRegister.register(DbType.PGSQL, DietDishLogModel, DietWaterLogModel)
+    TableRegister.register(DbType.PGSQL, UserMenuModel, UserMenuItem)
 
     TransactionManager.initTables(
         forceRecreate = true,
