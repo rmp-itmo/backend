@@ -6,6 +6,7 @@ import com.rmp.diet.actions.dish.service.get.DishServiceGetAllFsm
 import com.rmp.diet.actions.target.DailyTargetCheckFsm
 import com.rmp.diet.actions.water.WaterLogFsm
 import com.rmp.diet.services.DietLogService
+import com.rmp.diet.services.DietTargetCheckService
 import com.rmp.diet.services.DishService
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.modules.diet.DietDishLogModel
@@ -32,7 +33,7 @@ fun main() {
     val kodein = DI {
         bindSingleton { PubSubService(AppConf.redis.diet, it) }
         bindSingleton { DietLogService(it) }
-        bindSingleton { DietLogService(it) }
+        bindSingleton { DietTargetCheckService(it) }
         bindSingleton { DishService(it) }
         bindSingleton {
             FsmRouter.routing(AppConf.redis.diet, it) {

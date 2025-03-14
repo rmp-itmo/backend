@@ -69,7 +69,7 @@ class DishService(di: DI): FsmService(di) {
         redisEvent.switchOnDb(transaction, redisEvent.mutate(DishServiceGetAllEventState.RESPONSE))
     }
     suspend fun getResponse(redisEvent: RedisEvent){
-        val data = redisEvent.parseDb()["service-create-dish"] ?: throw Exception("Bad data")
+        val data = redisEvent.parseDb()["service-det-all-dishes"] ?: throw Exception("Bad data")
         redisEvent.switchOnApi(
             SIMPLEDishListOutput(
                 data.map {
