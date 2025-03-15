@@ -2,11 +2,14 @@ package com.rmp.lib.utils.redis.fsm
 
 import com.rmp.lib.exceptions.BaseException
 import com.rmp.lib.exceptions.InternalServerException
+import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.utils.log.Logger
+import com.rmp.lib.utils.redis.PubSubService
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.SerializableClass
 import org.kodein.di.DI
 import org.kodein.di.DIAware
+import org.kodein.di.instance
 import kotlin.reflect.KClass
 import kotlin.reflect.full.superclasses
 
@@ -15,6 +18,7 @@ typealias ExceptionHandler = suspend RedisEvent.(exception: Exception) -> Unit
 class FsmRouter(override val di: DI) : DIAware {
     private val fsmService: FsmService = object : FsmService(di) {}
     private val routes: MutableMap<String, Fsm> = mutableMapOf()
+    private val pubSubService: PubSubService by instance()
     val exceptionHandlers: MutableMap<KClass<*>, ExceptionHandler> = mutableMapOf()
 
     companion object {
@@ -74,6 +78,10 @@ class FsmRouter(override val di: DI) : DIAware {
     suspend fun process(event: RedisEvent) {
         try {
             val fsm = routes[event.eventType] ?: throw Exception("Unknown event type: ${event.eventType}")
+            if (event.from == AppConf.redis.db && event.dbRequest != null) {
+                pubSubService.processDbResponse(event.dbRequest, event)
+                return
+            }
             fsm.process(event)
         } catch (e: Exception) {
             if (e::class in exceptionHandlers) {

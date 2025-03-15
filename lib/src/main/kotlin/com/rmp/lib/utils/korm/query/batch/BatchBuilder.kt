@@ -2,59 +2,44 @@ package com.rmp.lib.utils.korm.query.batch
 
 import com.rmp.lib.utils.korm.query.*
 import com.rmp.lib.utils.korm.query.builders.DeleteQueryBuilder
+import com.rmp.lib.utils.korm.query.builders.SelectQueryBuilder
+
+typealias BatchEntry = Pair<String, QueryDto>
 
 class BatchBuilder {
     val batch: BatchQuery = BatchQuery()
 
+
     @JvmName("addSelectQuery")
-    infix fun add (query: Pair<String, QueryDto>) {
+    infix fun add (query: BatchEntry) {
         batch += query
+    }
+
+    infix fun add (query: SelectQueryBuilder<*>) {
+        batch += query.named(query.table.tableName_)
     }
 
     @JvmName("addDeleteQuery")
     infix fun add (query: DeleteQueryBuilder) {
-        batch += query.execute() named "delete"
-    }
-
-    @JvmName("addQuery")
-    infix fun add (query: QueryDto) {
-        batch += query named ""
+        batch += query.execute() named "delete-${query.table.tableName_}"
     }
 
     internal fun init() {
-        batch += InitTransactionQueryDto() named "init${batch.queries.size}"
+        batch += InitTransactionQueryDto() named "init-${batch.queries.size}"
     }
 
     fun commit() {
-        batch += CommitQueryDto() named "commit${batch.queries.size}"
+        batch += CommitQueryDto() named "commit-${batch.queries.size}"
     }
 
     fun rollback() {
-        batch += RollbackQueryDto() named "rollback${batch.queries.size}"
+        batch += RollbackQueryDto() named "rollback-${batch.queries.size}"
+    }
+
+    companion object {
+        fun build(builder: BatchBuilder.() -> Unit): BatchQuery =
+            BatchBuilder().apply(builder).batch
+        fun buildAutoCommit(builder: BatchBuilder.() -> Unit): BatchQuery =
+            BatchBuilder().apply{init()}.apply(builder).apply { commit() }.batch
     }
 }
-
-fun buildBatch(builder: BatchBuilder.() -> Unit): BatchQuery =
-    BatchBuilder().apply(builder).batch
-
-fun newTransaction(builder: BatchBuilder.() -> Unit): BatchQuery =
-    BatchBuilder().apply {
-        init()
-    }.apply(builder).batch
-
-fun autoCommitTransaction(builder: BatchBuilder.() -> Unit): BatchQuery =
-    BatchBuilder()
-        .apply(builder)
-        .apply {
-            commit()
-        }.batch
-
-fun newAutoCommitTransaction(builder: BatchBuilder.() -> Unit): BatchQuery =
-    BatchBuilder()
-        .apply {
-           init()
-        }
-        .apply(builder)
-        .apply {
-            commit()
-        }.batch

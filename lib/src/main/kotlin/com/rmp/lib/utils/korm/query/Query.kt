@@ -1,6 +1,7 @@
 package com.rmp.lib.utils.korm.query
 
 import com.rmp.lib.utils.korm.RowDto
+import com.rmp.lib.utils.korm.query.batch.BatchEntry
 import com.rmp.lib.utils.redis.SerializableClass
 import com.rmp.lib.utils.serialization.UltimateSerializer
 import kotlinx.serialization.Serializable
@@ -102,8 +103,8 @@ class InitTransactionQueryDto: QueryDto(QueryType.INIT.value, "", listOf())
 data class BatchQuery(
     val queries: MutableMap<String, QueryDto> = mutableMapOf()
 ): Query() {
-    operator fun plusAssign(query: Pair<String, QueryDto>) {
-        queries += query
+    operator fun plusAssign(batchEntry: BatchEntry) {
+        queries += batchEntry
     }
 }
 

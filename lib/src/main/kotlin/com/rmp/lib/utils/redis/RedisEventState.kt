@@ -22,4 +22,8 @@ data class RedisEventState (
 
     inline fun <reified T: SerializableClass> mutate(newState: String, newStateData: T) =
         RedisEventState(newState, Json.serializer.encodeToString(newStateData))
+
+    fun clearData(): RedisEventState {
+        return RedisEventState(state, null)
+    }
 }

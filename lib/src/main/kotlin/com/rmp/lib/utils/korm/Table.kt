@@ -58,7 +58,7 @@ open class Table(val tableName_: String) {
     fun delete(filter: Operator) =
         DeleteQueryBuilder(this).apply {
             filterExpression = filter
-        }.execute()
+        }.execute().named("delete-$tableName_")
 
     fun <T> batchInsert(collection: Collection<T>, processor: Row.(item: T, idx: Int) -> Unit): QueryDto =
         InsertQueryBuilder(this).execute(collection.mapIndexed { idx, it ->
