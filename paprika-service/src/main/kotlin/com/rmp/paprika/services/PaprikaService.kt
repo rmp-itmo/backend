@@ -8,7 +8,6 @@ import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.shared.modules.paprika.CacheModel
 import com.rmp.lib.shared.modules.paprika.CacheToDishModel
 import com.rmp.lib.utils.korm.Row
-import com.rmp.lib.utils.korm.query.batch.newAutoCommitTransaction
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.RedisEventState
 import com.rmp.lib.utils.redis.fsm.FsmService
@@ -164,16 +163,19 @@ class PaprikaService(di: DI) : FsmService(di, AppConf.redis.paprika) {
 
     // Meal generation
     private suspend fun switchMealSolvingToDishFetch(redisEvent: RedisEvent, state: GenerateMenuStateDto) {
-        val transaction = newAutoCommitTransaction {
-            this add dishService
-                .getDishesByMealParams(state.currentMealOptions, state.paprikaInputDto, state.offset)
-                .named("dishes")
+        val dishCount = newAutoCommitTransaction(redisEvent) {
             this add dishService
                 .getDishesIdByEatingParams(state.currentMealOptions, state.paprikaInputDto)
                 .count("dishes-count")
-        }
+        }["dishes-count"]?.firstOrNull() ?: throw InternalServerException("Select failed")
 
-        redisEvent.switchOnDb(transaction, redisEvent.mutate(GenerateMealState.SEARCH_DISHES))
+        redisEvent.switch(
+            AppConf.redis.paprika,
+            redisEvent.mutate(
+                GenerateMealState.SEARCH_DISHES,
+                state.setDishCount(dishCount[DishModel.entityCount])
+            )
+        )
     }
 
     private suspend fun mealSolutionFound(redisEvent: RedisEvent, paramsManager: ParamsManager, state: GenerateMenuStateDto, dishes: List<Row>, cacheId: Long? = null) {
@@ -201,7 +203,7 @@ class PaprikaService(di: DI) : FsmService(di, AppConf.redis.paprika) {
     suspend fun initMealSolution(redisEvent: RedisEvent) {
         val state = redisEvent.parseState<GenerateMenuStateDto>() ?: throw InternalServerException("Event state corrupted")
 
-        val transaction = newAutoCommitTransaction {
+        val cache = newAutoCommitTransaction(redisEvent) {
             this add cacheService
                         .findIncompatible(state.paprikaInputDto.excludeDishes)
                         .named("excluded-cache-entries")
@@ -211,43 +213,29 @@ class PaprikaService(di: DI) : FsmService(di, AppConf.redis.paprika) {
                         .named("cache-entries")
         }
 
-        redisEvent.switchOnDb(transaction, redisEvent.mutate(GenerateMealState.CACHE_FETCHED))
-    }
 
-    suspend fun cacheFetched(redisEvent: RedisEvent) {
-        val state = redisEvent.parseState<GenerateMenuStateDto>() ?: throw InternalServerException("Event state corrupted")
-        val cacheEntries = redisEvent.parseDb()["cache-entries"]
-        val excludedEntries = redisEvent.parseDb()["excluded-cache-entries"]?.map {
+        val cacheEntries = cache["cache-entries"]
+        val excludedEntries = cache["excluded-cache-entries"]?.map {
             it[CacheToDishModel.mealCache]
         } ?: listOf()
 
-        if (cacheEntries.isNullOrEmpty())
+
+        if (cacheEntries.isNullOrEmpty()) {
             switchMealSolvingToDishFetch(redisEvent, state)
-        else {
-            val acceptableEntry = cacheEntries.firstOrNull {
-                it[CacheModel.id] !in excludedEntries
-            } ?: return switchMealSolvingToDishFetch(redisEvent, state)
-
-            val transaction = newAutoCommitTransaction {
-                this add cacheService
-                            .getMealDishes(acceptableEntry[CacheModel.id])
-                            .named("meal-dishes")
-            }
-
-            redisEvent.switchOnDb(
-                transaction,
-                redisEvent.mutate(
-                    GenerateMealState.SOLVED_BY_CACHE,
-                    state.tempCacheId(acceptableEntry[CacheModel.id])
-                )
-            )
+            return
         }
-    }
 
-    suspend fun solvedByCache(redisEvent: RedisEvent) {
-        val state = redisEvent.parseState<GenerateMenuStateDto>() ?: throw InternalServerException("Event state corrupted")
-        val mealDishes = redisEvent.parseDb()["meal-dishes"] ?: listOf()
+        val acceptableEntry = cacheEntries.firstOrNull {
+            it[CacheModel.id] !in excludedEntries
+        } ?: return switchMealSolvingToDishFetch(redisEvent, state)
+
+        val mealDishes = newAutoCommitTransaction(redisEvent) {
+            this add cacheService
+                .getMealDishes(acceptableEntry[CacheModel.id])
+                .named("meal-dishes")
+        }["meal-dishes"] ?: listOf()
         val mealOptions = state.currentMealOptions
+
 
         val processed = ParamsManager.process {
             withSize(mealOptions.size)
@@ -259,34 +247,30 @@ class PaprikaService(di: DI) : FsmService(di, AppConf.redis.paprika) {
 
     suspend fun searchDishes(redisEvent: RedisEvent) {
         val state = redisEvent.parseState<GenerateMenuStateDto>() ?: throw InternalServerException("Event state corrupted")
-        val dishesCount = redisEvent.parseDb()["dishes-count"]?.firstOrNull().let {
-            if (it == null) 0L
-            else it[DishModel.entityCount]
-        }
 
-        if (dishesCount == 0L) {
+        if (state.dishesCount == 0L) {
             redisEvent.switchOnApi(CantSolveException())
             return
         }
 
-        redisEvent.switch(
-            AppConf.redis.paprika,
-            redisEvent.mutate(GenerateMealState.DISHES_FETCHED, state.setDishCount(dishesCount))
-        )
+        solve(redisEvent, state)
     }
 
-    suspend fun dishesFetched(redisEvent: RedisEvent) {
-        val state = redisEvent.parseState<GenerateMenuStateDto>() ?: throw InternalServerException("Event state corrupted")
-        val dishes = redisEvent.parseDb()["dishes"] ?: listOf()
+    private suspend fun solve(redisEvent: RedisEvent, curState: GenerateMenuStateDto) {
+        val dishes = newAutoCommitTransaction(redisEvent) {
+            this add dishService
+                .getDishesByMealParams(curState.currentMealOptions, curState.paprikaInputDto, curState.offset)
+                .named("dishes")
+        }["dishes"] ?: listOf()
 
         val processedData = ParamsManager.process {
-            withSize(state.currentMealOptions.size)
-            fromPaprikaInput(state.paprikaInputDto, solverDelta)
+            withSize(curState.currentMealOptions.size)
+            fromPaprikaInput(curState.paprikaInputDto, solverDelta)
         }
 
         val params = processedData.params
         val solver = MPSolverService.initSolver {
-            answersCount(state.currentMealOptions.dishCount ?: 0)
+            answersCount(curState.currentMealOptions.dishCount ?: 0)
 
             setConstraint {
                 name = "Calories"
@@ -325,20 +309,15 @@ class PaprikaService(di: DI) : FsmService(di, AppConf.redis.paprika) {
         }
         val result = solver.solve()
 
-        if (result.isEmpty()) {
-            if (state.dishesCount < state.offset * 750) {
-                redisEvent.switchOnApi(CantSolveException())
-            } else {
-                val transaction = newAutoCommitTransaction {
-                    this add dishService
-                        .getDishesByMealParams(state.currentMealOptions, state.paprikaInputDto, state.offset)
-                        .named("dishes")
-                }
-                redisEvent.switchOnDb(transaction, redisEvent.mutate(state.nextDishBatch()))
-            }
+        if (result.isNotEmpty()) {
+            mealSolutionFound(redisEvent, processedData, curState, result)
             return
         }
 
-        mealSolutionFound(redisEvent, processedData, state, result)
+        if (curState.dishesCount < curState.offset * 750) {
+            redisEvent.switchOnApi(CantSolveException())
+        } else {
+            solve(redisEvent, curState.nextDishBatch())
+        }
     }
 }

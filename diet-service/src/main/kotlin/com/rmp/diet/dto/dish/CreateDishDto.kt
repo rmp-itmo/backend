@@ -1,5 +1,6 @@
 package com.rmp.diet.dto.dish
 
+import com.rmp.lib.utils.redis.SerializableClass
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -13,4 +14,4 @@ data class CreateDishDto (
     val carbohydrates: Double,
     val timeToCook: Int,
     val typeId: Long,
-)
+): SerializableClass

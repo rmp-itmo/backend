@@ -12,8 +12,5 @@ class WaterLogFsm(di: DI) : Fsm("user-upload-water-log", di) {
         on(WaterLogEventState.INIT) {
             dietLogService.uploadWater(this)
         }
-        on(WaterLogEventState.UPLOADED) {
-            dietLogService.waterUploaded(this)
-        }
     }
 }

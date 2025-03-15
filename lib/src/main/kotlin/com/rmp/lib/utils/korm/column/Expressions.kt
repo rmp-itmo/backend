@@ -13,7 +13,7 @@ infix fun <T: Number, R: Number> Column<T>.inList(value: List<R>): Operator =
 
 infix fun <T: Number, R: Number> Column<T>.notInList(value: List<R>): Operator =
     if (value.isEmpty())
-        Operator("${this.fullQualifiedName} != ${this.fullQualifiedName}")
+        Operator("${this.fullQualifiedName} = ${this.fullQualifiedName}")
     else
         Operator("${this.fullQualifiedName} not in (${value.joinToString(",") {"?"}})", value)
 
