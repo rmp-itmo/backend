@@ -1,56 +1,44 @@
 package com.rmp.diet.services
 
-import com.rmp.diet.actions.dish.service.create.DishServiceCreateEventState
-import com.rmp.diet.actions.dish.service.get.DishServiceGetAllEventState
 import com.rmp.diet.dto.dish.log.DishLogOutputDto
 import com.rmp.diet.dto.dish.service.SIMPLEDishCreate
 import com.rmp.diet.dto.dish.service.SIMPLEDishListOutput
 import com.rmp.diet.dto.dish.service.SIMPLEDishOutput
+import com.rmp.lib.exceptions.InternalServerException
 import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.utils.korm.insert
-import com.rmp.lib.utils.korm.query.BatchQuery
-import com.rmp.lib.utils.korm.query.batch.newAutoCommitTransaction
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
 import org.kodein.di.DI
 
 class DishService(di: DI): FsmService(di) {
+
     suspend fun createDish(redisEvent: RedisEvent) {
         val data = redisEvent.parseData<SIMPLEDishCreate>() ?: throw Exception("Bad data")
 
-        redisEvent.switchOnDb(
-            createDishTransaction(data),
-            redisEvent.mutate(DishServiceCreateEventState.CREATED)
-        )
-    }
-
-    private fun createDishTransaction(dish: SIMPLEDishCreate): BatchQuery {
-        return newAutoCommitTransaction {
+        val dish = newAutoCommitTransaction(redisEvent) {
             this add DishModel
                 .insert {
-                    it[name] = dish.name
-                    it[description] = dish.description
-                    it[portionsCount] = dish.portions
-                    it[protein] = dish.protein
-                    it[imageUrl] = dish.image
-                    it[calories] = dish.calories
-                    it[fat] = dish.fats
-                    it[carbohydrates] = dish.carbo
-                    it[cookTime] = dish.time
+                    it[name] = data.name
+                    it[description] = data.description
+                    it[portionsCount] = data.portions
+                    it[protein] = data.protein
+                    it[imageUrl] = data.image
+                    it[calories] = data.calories
+                    it[fat] = data.fats
+                    it[carbohydrates] = data.carbo
+                    it[cookTime] = data.time
                     it[author] = 1
                     it[private] = false
-                    it[type] = dish.type.toLong()
-                }.named("service-create-dish")
-        }
-    }
+                    it[type] = data.type.toLong()
+                }.named("create-dish")
+        }["create-dish"]?.firstOrNull() ?: throw InternalServerException("Insert failed")
 
-    suspend fun dishCreated(redisEvent: RedisEvent) {
-        val data = redisEvent.parseDb()["service-create-dish"]?.firstOrNull() ?: throw Exception("Bad data")
-        redisEvent.switchOnApi(DishLogOutputDto(data[DishModel.id]))
+        redisEvent.switchOnApi(DishLogOutputDto(dish[DishModel.id]))
     }
 
     suspend fun getDishes(redisEvent: RedisEvent) {
-        val transaction = newAutoCommitTransaction {
+        val dish = newAutoCommitTransaction(redisEvent) {
             this add DishModel
                 .select(
                     DishModel.id,
@@ -64,15 +52,12 @@ class DishService(di: DI): FsmService(di) {
                     DishModel.portionsCount,
                     DishModel.cookTime,
                     DishModel.type
-                ).named("service-get-all-dishes")
-        }
-        redisEvent.switchOnDb(transaction, redisEvent.mutate(DishServiceGetAllEventState.RESPONSE))
-    }
-    suspend fun getResponse(redisEvent: RedisEvent){
-        val data = redisEvent.parseDb()["service-get-all-dishes"] ?: throw Exception("Bad data")
+                ).named("get-all-dishes")
+        }["get-all-dishes"] ?: throw InternalServerException("Insert failed")
+
         redisEvent.switchOnApi(
             SIMPLEDishListOutput(
-                data.map {
+                dish.map {
                     SIMPLEDishOutput(
                         it[DishModel.id],
                         it[DishModel.protein],

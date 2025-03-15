@@ -11,9 +11,5 @@ class DishServiceGetAllFsm(di: DI): Fsm("service-dish-get-all", di) {
         on(DishServiceGetAllEventState.INIT) {
             dishService.getDishes(this)
         }
-
-        on(DishServiceGetAllEventState.RESPONSE) {
-            dishService.getResponse(this)
-        }
     }
 }

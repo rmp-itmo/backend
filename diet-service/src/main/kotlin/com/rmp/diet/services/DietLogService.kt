@@ -1,19 +1,19 @@
 package com.rmp.diet.services
 
 import com.rmp.diet.actions.dish.log.DishLogEventState
-import com.rmp.diet.actions.water.WaterLogEventState
 import com.rmp.diet.dto.dish.CreateDishDto
 import com.rmp.diet.dto.dish.log.DishLogUploadDto
 import com.rmp.diet.dto.dish.log.DishLogOutputDto
 import com.rmp.diet.dto.water.WaterLogOutputDto
 import com.rmp.diet.dto.water.WaterLogUploadDto
+import com.rmp.lib.exceptions.BadRequestException
+import com.rmp.lib.exceptions.ForbiddenException
+import com.rmp.lib.exceptions.InternalServerException
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.modules.diet.DietDishLogModel
 import com.rmp.lib.shared.modules.diet.DietWaterLogModel
 import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.utils.korm.insert
-import com.rmp.lib.utils.korm.query.BatchQuery
-import com.rmp.lib.utils.korm.query.batch.newAutoCommitTransaction
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
 import org.kodein.di.DI
@@ -29,53 +29,47 @@ class DietLogService(di: DI): FsmService(di, AppConf.redis.diet) {
         val data = redisEvent.parseData<WaterLogUploadDto>() ?: throw Exception("Bad data")
         if (data.volume < 0) throw Exception("Bad water volume provided")
 
-        val transaction = newAutoCommitTransaction {
+        val inserted = newAutoCommitTransaction(redisEvent) {
             this add DietWaterLogModel
                 .insert {
                     it[userId] = user.id
                     it[time] = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(offset))
                     it[volume] = data.volume
                 }.named("insert-water-log")
-        }
-        redisEvent.switchOnDb(transaction, redisEvent.mutate(WaterLogEventState.UPLOADED, data))
+        }["insert-water-log"]?.firstOrNull() ?: throw InternalServerException("Insert failed")
+
+        redisEvent.switchOnApi(WaterLogOutputDto(inserted[DietWaterLogModel.id]))
     }
 
-    suspend fun waterUploaded(redisEvent: RedisEvent) {
-        val data = redisEvent.parseDb()["insert-water-log"]?.firstOrNull() ?: throw Exception("Bad data")
-
-        redisEvent.switchOnApi(WaterLogOutputDto(data[DietWaterLogModel.id]))
-    }
 
     // Dish Log //
-
     suspend fun uploadDish(redisEvent: RedisEvent) {
-        val user = redisEvent.authorizedUser ?: throw Exception("Bad user")
-        val data = redisEvent.parseData<DishLogUploadDto>() ?: throw Exception("Bad data")
-        if (data.id == null && data.dish == null) throw Exception("Bad dish ID provided")
+        val user = redisEvent.authorizedUser ?: throw ForbiddenException()
+        val data = redisEvent.parseData<DishLogUploadDto>() ?: throw BadRequestException("Bad data")
+        if (data.id == null && data.dish == null) throw BadRequestException("Bad dish ID provided")
 
         // В Dto два поля: если id == null, значит пользователь указал свой рецепт и такого блюда у нас нет.
 
-        val transaction = if (data.id != null) {
-            newAutoCommitTransaction {
-                this add DietDishLogModel
-                    .insert {
-                        it[userId] = user.id
-                        it[time] = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(offset))
-                        it[dish] = data.id
-                    }.named("insert-dish-log")
-            }
-        } else {
-            createDishTransaction(data.dish!!, user.id)
+        if (data.id == null && data.dish != null) {
+            redisEvent.switchOn(data.dish, AppConf.redis.diet, redisEvent.mutate(DishLogEventState.LOG_NEW))
+            return
         }
 
-        redisEvent.switchOnDb(
-            transaction,
-            redisEvent.mutate(if (data.id != null) DishLogEventState.CREATED else DishLogEventState.CREATE_DISH)
-        )
+
+        val inserted = newAutoCommitTransaction(redisEvent) {
+            this add DietDishLogModel
+                .insert {
+                    it[userId] = user.id
+                    it[time] = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(offset))
+                    it[dish] = data.id
+                }.named("insert-dish-log")
+        }["insert-dish-log"]?.firstOrNull() ?: throw InternalServerException("Insert failed")
+
+        redisEvent.switchOnApi(DishLogOutputDto(inserted[DietDishLogModel.id]))
     }
 
-    private fun createDishTransaction(dish: CreateDishDto, userId: Long): BatchQuery {
-        return newAutoCommitTransaction {
+    private suspend fun createDish(redisEvent: RedisEvent, dish: CreateDishDto, userId: Long): Long {
+        val insert = newAutoCommitTransaction(redisEvent) {
             this add DishModel
                 .insert {
                     it[name] = dish.name
@@ -90,28 +84,26 @@ class DietLogService(di: DI): FsmService(di, AppConf.redis.diet) {
                     it[author] = userId
                     it[type] = dish.typeId
                 }.named("insert-dish")
-        }
+        }["insert-dish"]?.firstOrNull() ?: throw InternalServerException("Insert failed")
+
+        return insert[DishModel.id]
     }
 
-    suspend fun createDish(redisEvent: RedisEvent) {
-        val user = redisEvent.authorizedUser ?: throw Exception("Bad user")
-        val data = redisEvent.parseDb()["insert-dish"]?.firstOrNull() ?: throw Exception("Bad data")
+    suspend fun logNew(redisEvent: RedisEvent) {
+        val user = redisEvent.authorizedUser ?: throw ForbiddenException()
+        val createDishDto = redisEvent.parseData<CreateDishDto>() ?: throw BadRequestException("Bad dish create dto provided")
 
-        val transaction = newAutoCommitTransaction {
+        val dishId = createDish(redisEvent, createDishDto, user.id)
+
+        val log = newAutoCommitTransaction(redisEvent) {
             this add DietDishLogModel
                 .insert {
                     it[userId] = user.id
                     it[time] = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(offset))
-                    it[dish] = data[DishModel.id]
+                    it[dish] = dishId
                 }.named("insert-dish-log")
-        }
-        redisEvent.switchOnDb(transaction, redisEvent.mutate(DishLogEventState.CREATED))
+        }["insert-dish-log"]?.firstOrNull() ?: throw InternalServerException("Insert failed")
 
-    }
-
-    suspend fun dishCreated(redisEvent: RedisEvent) {
-        val data = redisEvent.parseDb()["insert-dish-log"]?.firstOrNull() ?: throw Exception("Bad data")
-
-        redisEvent.switchOnApi(DishLogOutputDto(data[DietDishLogModel.id]))
+        redisEvent.switchOnApi(DishLogOutputDto(log[DietDishLogModel.id]))
     }
 }

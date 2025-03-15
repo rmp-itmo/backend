@@ -12,10 +12,6 @@ class GetUserMenuFsm(di: DI) : Fsm("get-user-menu", di) {
         on(GetUserMenuEventState.INIT) {
             menuService.selectMenu(this)
         }
-
-        on(GetUserMenuEventState.SELECTED) {
-            menuService.menuSelected(this)
-        }
     }
 
 }

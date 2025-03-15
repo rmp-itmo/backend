@@ -11,9 +11,5 @@ class DishServiceCreateFsm(di: DI): Fsm("service-dish-create", di) {
         on(DishServiceCreateEventState.INIT) {
             dishService.createDish(this)
         }
-
-        on(DishServiceCreateEventState.CREATED) {
-            dishService.dishCreated(this)
-        }
     }
 }

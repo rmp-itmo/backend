@@ -12,14 +12,13 @@ import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.kodein.bindSingleton
 import com.rmp.lib.utils.korm.DbType
 import com.rmp.lib.utils.korm.TableRegister
+import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.redis.PubSubService
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.RedisSubscriber
 import com.rmp.lib.utils.redis.fsm.FsmRouter
 import com.rmp.lib.utils.redis.subscribe
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.*
 import org.kodein.di.DI
 import org.kodein.di.instance
 
@@ -68,7 +67,10 @@ fun main() {
                     }
 
                     launch {
-                        router.process(redisEvent)
+                        withContext(Dispatchers.IO) {
+                            router.process(redisEvent)
+                            Logger.debug("PROCESSED")
+                        }
                     }
                 }
             }, true, AppConf.redis.auth)

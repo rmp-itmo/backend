@@ -17,7 +17,7 @@ abstract class FsmService(di: DI, val channel: String = "service") : KodeinServi
     ): DbResponseData {
         val id = System.nanoTime()
         pubSubService.publish(forDb(id).mutateData(queryDto), AppConf.redis.db)
-        return pubSubService.regDbRequest(id).await()
+        return pubSubService.regDbRequest(id, this).await()
     }
 
     suspend inline fun <reified T: SerializableClass> RedisEvent.switchOnApi(

@@ -10,25 +10,13 @@ class DailyTargetCheckFsm(di: DI): Fsm("user-daily-target-check", di) {
 
     override fun Fsm.registerStates() {
         on(DailyTargetCheckEventState.INIT) {
-            dietTargetCheckService.selectTargets(this)
+            dietTargetCheckService.init(this)
         }
-        on(DailyTargetCheckEventState.SELECTED_TARGETS) {
-            dietTargetCheckService.selectDailyDishes(this)
-        }
-        on(DailyTargetCheckEventState.SELECTED_DAILY_DISHES) {
-            dietTargetCheckService.selectCalories(this)
-        }
-        on(DailyTargetCheckEventState.SELECTED_CALORIES) {
+        on(DailyTargetCheckEventState.CHECK_DISH) {
             dietTargetCheckService.checkDishes(this)
         }
-        on(DailyTargetCheckEventState.CHECKED_DISHES) {
-            dietTargetCheckService.selectDailyWater(this)
-        }
-        on(DailyTargetCheckEventState.SELECTED_DAILY_WATER) {
+        on(DailyTargetCheckEventState.CHECK_WATER) {
             dietTargetCheckService.checkWater(this)
-        }
-        on(DailyTargetCheckEventState.CHECKED_WATER) {
-            dietTargetCheckService.checked(this)
         }
     }
 }

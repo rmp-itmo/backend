@@ -28,10 +28,10 @@ open class PubSubService(val serviceName: String, di: DI) : KodeinService(di) {
         }
     }
 
-    private val pendingDbRequests = mutableMapOf<Long, CompletableDeferred<DbResponseData>>()
+    private val pendingDbRequests = mutableMapOf<Long, Pair<RedisEvent, CompletableDeferred<DbResponseData>>>()
 
     private sealed class DbCommunication(val id: Long) {
-        class DbRequest(id: Long, val completableDeferred: CompletableDeferred<DbResponseData>): DbCommunication(id)
+        class DbRequest(id: Long, val redisEvent: RedisEvent, val completableDeferred: CompletableDeferred<DbResponseData>): DbCommunication(id)
         class DbResponse(id: Long, val value: RedisEvent): DbCommunication(id)
     }
 
@@ -40,14 +40,16 @@ open class PubSubService(val serviceName: String, di: DI) : KodeinService(di) {
         for (item in this) {
             when (item) {
                 is DbCommunication.DbRequest -> {
-                    pendingDbRequests += item.id to item.completableDeferred
+                    pendingDbRequests += item.id to (item.redisEvent to item.completableDeferred)
                     Logger.debug("Pending request added $item")
                     Logger.debug("$pendingDbRequests")
                 }
                 is DbCommunication.DbResponse -> {
                     if (pendingDbRequests.containsKey(item.id)) {
                         Logger.debug("Pending request found ${pendingDbRequests[item.id]}")
-                        pendingDbRequests.getValue(item.id).complete(item.value.parseDb())
+                        val (initiator, deferred) = pendingDbRequests.getValue(item.id)
+                        initiator.tid = item.value.tid
+                        deferred.complete(item.value.parseDb())
                         pendingDbRequests -= item.id
                     }
                 }
@@ -55,9 +57,9 @@ open class PubSubService(val serviceName: String, di: DI) : KodeinService(di) {
         }
     }
 
-    fun regDbRequest(id: Long): CompletableDeferred<DbResponseData> {
+    fun regDbRequest(id: Long, redisEvent: RedisEvent): CompletableDeferred<DbResponseData> {
         val completable = CompletableDeferred<DbResponseData>()
-        dbActor.trySend(DbCommunication.DbRequest(id, completable))
+        dbActor.trySend(DbCommunication.DbRequest(id, redisEvent, completable))
         return completable
     }
 

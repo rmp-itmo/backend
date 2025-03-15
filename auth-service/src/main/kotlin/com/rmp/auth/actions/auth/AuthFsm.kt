@@ -14,13 +14,5 @@ class AuthFsm(di: DI): Fsm("auth", di) {
         on(AuthEventState.INIT) {
             authService.fetchUser(this)
         }
-
-        on(AuthEventState.VERIFY) {
-            authService.verify(this)
-        }
-
-        on(AuthEventState.UPDATED) {
-            refreshService.updated(this)
-        }
     }
 }

@@ -6,14 +6,11 @@ import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.shared.modules.paprika.CacheModel
 import com.rmp.lib.shared.modules.paprika.CacheToDishModel
 import com.rmp.lib.utils.korm.column.*
-import com.rmp.lib.utils.korm.query.batch.autoCommitTransaction
-import com.rmp.lib.utils.korm.query.batch.newTransaction
 import com.rmp.lib.utils.korm.query.builders.SelectQueryBuilder
 import com.rmp.lib.utils.korm.query.builders.filter.Operator
 import com.rmp.lib.utils.korm.query.builders.filter.and
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
-import com.rmp.paprika.actions.cache.UpdateCacheState
 import com.rmp.paprika.dto.GenerateMenuStateDto
 import com.rmp.paprika.dto.PaprikaInputDto
 import org.kodein.di.DI
@@ -71,7 +68,7 @@ class CacheService(di: DI) : FsmService(di) {
         var i = 0
         val newCache = state.generated.filter { it.cacheId == null }
 
-        val transaction = newTransaction {
+        val newCacheEntries = newTransaction(redisEvent) {
             if (ids.isNotEmpty())
                 this add CacheModel.update(CacheModel.id inList ids) {
                     CacheModel.useTimesFromCreation += 1
@@ -94,16 +91,7 @@ class CacheService(di: DI) : FsmService(di) {
 
                         i += 1
                     }.named("insert-new")
-        }
-
-        redisEvent.switchOnDb(transaction, redisEvent.mutate(UpdateCacheState.SAVE_DISHES, state))
-    }
-
-    suspend fun saveDishes(redisEvent: RedisEvent) {
-        val state = redisEvent.parseState<GenerateMenuStateDto>() ?: throw InternalServerException("Event state corrupted")
-        val newCacheEntries = redisEvent.parseDb()["insert-new"] ?: listOf()
-
-        val newCache = state.generated.filter { it.cacheId == null }
+        }["insert-new"] ?: listOf()
 
         val dishes: List<Pair<Long, Long>> =
             newCache.mapIndexed { index, it ->
@@ -112,13 +100,11 @@ class CacheService(di: DI) : FsmService(di) {
                 }
             }.flatten()
 
-        val transaction = autoCommitTransaction {
+        autoCommitTransaction(redisEvent) {
             this add CacheToDishModel.batchInsert(dishes) { (cache, dish), _ ->
                 this[CacheToDishModel.dish] = dish
                 this[CacheToDishModel.mealCache] = cache
             }.named("Insert-Cache-Dishes")
-        }
-
-        redisEvent.switchOnDb(transaction, redisEvent.mutate(UpdateCacheState.SAVED))
+        }["Insert-Cache-Dishes"] ?: throw InternalServerException("Cache saving failed")
     }
 }

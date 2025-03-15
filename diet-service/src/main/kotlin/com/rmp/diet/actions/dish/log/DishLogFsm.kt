@@ -13,12 +13,8 @@ class DishLogFsm(di: DI): Fsm("user-upload-dish-log", di) {
             dietLogService.uploadDish(this)
         }
 
-        on(DishLogEventState.CREATE_DISH) {
-            dietLogService.createDish(this)
-        }
-
-        on(DishLogEventState.CREATED) {
-            dietLogService.dishCreated(this)
+        on(DishLogEventState.LOG_NEW) {
+            dietLogService.logNew(this)
         }
     }
 }

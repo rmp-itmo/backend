@@ -50,7 +50,7 @@ fun main() {
             it[name] = "User"
             it[login] = "login"
             it[password] = CryptoUtil.hash("password")
-        }
+        }.named("insert")
     }
 
     val kodein = DI {

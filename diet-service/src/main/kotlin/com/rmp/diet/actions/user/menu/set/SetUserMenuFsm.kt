@@ -10,15 +10,7 @@ class SetUserMenuFsm(di: DI) : Fsm("set-user-menu", di) {
 
     override fun Fsm.registerStates() {
         on(SetUserMenuEventState.INIT) {
-            menuService.set(this)
-        }
-
-        on(SetUserMenuEventState.SET_DISHES) {
-            menuService.setDishes(this)
-        }
-
-        on(SetUserMenuEventState.DISHED_SAVED) {
-            menuService.dishesSaved(this)
+            menuService.setMenu(this)
         }
     }
 
