@@ -7,5 +7,6 @@ import kotlinx.serialization.Serializable
 data class TargetCheckSupportDto(
     var targets: Pair<Double?, Double?>? = null,
     var dishesIds: List<Long>? = null,
+    val timestamp: Long,
     var result: TargetCheckResultDto
 ): SerializableClass

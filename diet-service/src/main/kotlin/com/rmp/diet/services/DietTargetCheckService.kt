@@ -1,8 +1,10 @@
 package com.rmp.diet.services
 
 import com.rmp.diet.actions.target.DailyTargetCheckEventState
+import com.rmp.diet.dto.target.TargetCheckInputDto
 import com.rmp.diet.dto.target.TargetCheckResultDto
 import com.rmp.diet.dto.target.TargetCheckSupportDto
+import com.rmp.lib.exceptions.BadRequestException
 import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.exceptions.InternalServerException
 import com.rmp.lib.shared.conf.AppConf
@@ -11,6 +13,7 @@ import com.rmp.lib.shared.modules.diet.DietWaterLogModel
 import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.korm.column.eq
+import com.rmp.lib.utils.korm.column.grEq
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
 import org.kodein.di.DI
@@ -18,6 +21,7 @@ import org.kodein.di.DI
 class DietTargetCheckService(di: DI): FsmService(di) {
 
     suspend fun init(redisEvent: RedisEvent) {
+        val data = redisEvent.parseData<TargetCheckInputDto>() ?: throw BadRequestException("Timestamp is not provided")
         val user = redisEvent.authorizedUser ?: throw ForbiddenException()
         val select = newAutoCommitTransaction(redisEvent) {
             this add UserModel
@@ -25,11 +29,12 @@ class DietTargetCheckService(di: DI): FsmService(di) {
                 .where { UserModel.id eq user.id }
         }
 
-        val targets = select["select-targets"]?.firstOrNull() ?: throw InternalServerException("")
+        val targets = select[UserModel]?.firstOrNull() ?: throw InternalServerException("")
 
         val supportData = TargetCheckSupportDto(
             targets = Pair(targets[UserModel.caloriesTarget], targets[UserModel.waterTarget]),
-            result = TargetCheckResultDto()
+            result = TargetCheckResultDto(),
+            timestamp = data.timestamp
         )
 
         //If dish target exist
@@ -51,6 +56,7 @@ class DietTargetCheckService(di: DI): FsmService(di) {
     }
 
     private suspend fun selectCalories(redisEvent: RedisEvent): Double {
+        val supportData = redisEvent.parseData<TargetCheckSupportDto>() ?: throw InternalServerException("No support data")
         val user = redisEvent.authorizedUser ?: throw ForbiddenException()
 
         val dailyDishes = newAutoCommitTransaction(redisEvent) {
@@ -58,13 +64,14 @@ class DietTargetCheckService(di: DI): FsmService(di) {
                 .select(DishModel.calories)
                 .join(DishModel)
                 .where { DietDishLogModel.userId eq user.id }
+                .andWhere { DietDishLogModel.time grEq  supportData.timestamp}
         }[DietDishLogModel] ?: listOf()
 
         return dailyDishes.sumOf { it[DishModel.calories] }
     }
 
     suspend fun checkDishes(redisEvent: RedisEvent) {
-        val supportData = redisEvent.parseData<TargetCheckSupportDto>() ?: throw Exception("No support data")
+        val supportData = redisEvent.parseData<TargetCheckSupportDto>() ?: throw InternalServerException("No support data")
         val targets = supportData.targets ?: throw Exception("FSM state error")
         targets.first ?: throw Exception("Bad calories value provided")
 
@@ -76,7 +83,7 @@ class DietTargetCheckService(di: DI): FsmService(di) {
     }
 
     suspend fun checkWater(redisEvent: RedisEvent) {
-        val data = redisEvent.parseData<TargetCheckSupportDto>() ?: throw Exception("Bad data")
+        val data = redisEvent.parseData<TargetCheckSupportDto>() ?: throw InternalServerException("No support data")
         val user = redisEvent.authorizedUser ?: throw Exception("Bad user")
         val waterTarget = data.targets?.second
 
@@ -85,13 +92,13 @@ class DietTargetCheckService(di: DI): FsmService(di) {
                 this add DietWaterLogModel
                     .select(DietWaterLogModel.volume)
                     .where { DietWaterLogModel.userId eq user.id }
+                    .andWhere { DietWaterLogModel.time grEq data.timestamp }
             }[DietWaterLogModel] ?: listOf()
 
             val sum = dailyWater.sumOf { it[DietWaterLogModel.volume] }
 
             data.result.water = waterTarget < sum
         }
-
         redisEvent.switchOnApi(data.result)
     }
 }

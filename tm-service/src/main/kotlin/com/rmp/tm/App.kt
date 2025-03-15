@@ -50,6 +50,8 @@ fun main() {
             it[name] = "User"
             it[login] = "login"
             it[password] = CryptoUtil.hash("password")
+            it[waterTarget] = 1.2
+            it[caloriesTarget] = 4.1
         }.named("insert")
     }
 
