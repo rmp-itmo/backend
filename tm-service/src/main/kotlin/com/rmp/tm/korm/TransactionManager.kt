@@ -3,7 +3,6 @@ package com.rmp.tm.korm
 import com.rmp.lib.utils.korm.*
 import com.rmp.lib.utils.korm.query.*
 import com.rmp.lib.utils.korm.query.batch.BatchBuilder
-import com.rmp.lib.utils.korm.query.batch.newAutoCommitTransaction
 import com.rmp.lib.utils.redis.RedisEvent
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
@@ -280,7 +279,7 @@ object TransactionManager {
         connection.commit()
         connection.close()
 
-        val query = newAutoCommitTransaction(initScript ?: return)
+        val query = BatchBuilder.buildAutoCommit(initScript ?: return)
         processBatchQuery(query)
     }
 }

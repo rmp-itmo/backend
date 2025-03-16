@@ -8,7 +8,9 @@ class Operator(
 ) {
     private fun buildRecursive(): Pair<String, List<Any?>> {
         if (left == null && right == null) {
-            return if (expression != null && param != null) Pair(expression, mutableListOf(param))
+            val unwrappedParam = if (param == null || param !is List<*>) mutableListOf(param) else param
+
+            return if (expression != null && param != null) Pair(expression, unwrappedParam)
             else if (expression != null) Pair(expression, emptyList())
             else Pair("", emptyList())
         }

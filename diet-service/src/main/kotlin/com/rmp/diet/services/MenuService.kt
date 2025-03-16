@@ -1,7 +1,5 @@
 package com.rmp.diet.services
 
-import com.rmp.diet.actions.user.menu.get.GetUserMenuEventState
-import com.rmp.diet.actions.user.menu.set.SetUserMenuEventState
 import com.rmp.diet.dto.dish.DishDto
 import com.rmp.diet.dto.menu.MacronutrientsDto
 import com.rmp.diet.dto.menu.MealOutputDto
@@ -15,26 +13,26 @@ import com.rmp.diet.dto.menu.MenuInputDto
 import com.rmp.diet.dto.menu.MenuOutputDto
 import com.rmp.lib.utils.korm.Row
 import com.rmp.lib.utils.korm.column.eq
-import com.rmp.lib.utils.korm.query.batch.autoCommitTransaction
-import com.rmp.lib.utils.korm.query.batch.newAutoCommitTransaction
-import com.rmp.lib.utils.korm.query.batch.newTransaction
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
 import org.kodein.di.DI
 
 class MenuService(di: DI) : FsmService(di) {
-    suspend fun set(redisEvent: RedisEvent) {
+
+    suspend fun setMenu(redisEvent: RedisEvent) {
         val state = redisEvent.parseData<MenuInputDto>() ?: throw BadRequestException("Bad data provided")
 
-        val transaction = newTransaction {
+        newTransaction(redisEvent) {
             this add UserMenuItem.delete(
                 UserMenuItem.userId eq redisEvent.authorizedUser!!.id
-            ).named("remove-menu-item")
+            )
 
             this add UserMenuModel.delete(
                 UserMenuModel.userId eq redisEvent.authorizedUser!!.id
-            ).named("remove-menu-model")
+            )
+        }
 
+        val insertedMenu = transaction(redisEvent) {
             this add UserMenuModel.batchInsert(state.meals) { it, idx ->
                 this[UserMenuModel.userId] = redisEvent.authorizedUser!!.id
                 this[UserMenuModel.mealId] = System.nanoTime()
@@ -43,17 +41,10 @@ class MenuService(di: DI) : FsmService(di) {
             }.named("insert-menu")
 
             this add UserMenuModel
-                        .select(UserMenuModel.mealId, UserMenuModel.index)
-                        .where { UserMenuModel.userId eq redisEvent.authorizedUser!!.id }
-                        .named("inserted-menu")
-        }
-
-        redisEvent.switchOnDb(transaction, redisEvent.mutate(SetUserMenuEventState.SET_DISHES, state))
-    }
-
-    suspend fun setDishes(redisEvent: RedisEvent) {
-        val data = redisEvent.parseDb()["inserted-menu"] ?: throw InternalServerException("Insert failed")
-        val state = redisEvent.parseState<MenuInputDto>() ?: throw BadRequestException("Bad data provided")
+                .select(UserMenuModel.mealId, UserMenuModel.index)
+                .where { UserMenuModel.userId eq redisEvent.authorizedUser!!.id }
+                .named("inserted-menu")
+        }["inserted-menu"] ?: throw InternalServerException("Insert failed")
 
         val meals: List<Pair<Int, Long>> = state.meals.mapIndexed { idx, it ->
             it.dishes.map { dish ->
@@ -62,51 +53,29 @@ class MenuService(di: DI) : FsmService(di) {
         }.flatten()
 
         val mealIdByIdx = List(state.meals.size) { idx ->
-            idx to data.firstOrNull { it[UserMenuModel.index] == idx }
+            idx to insertedMenu.firstOrNull { it[UserMenuModel.index] == idx }
         }.toMap()
 
-        val transaction = autoCommitTransaction {
+        val menuItems = autoCommitTransaction(redisEvent) {
             this add UserMenuItem.batchInsert(meals) { it, _ ->
                 this[UserMenuItem.dishId] = it.second
                 this[UserMenuItem.userId] = redisEvent.authorizedUser!!.id
                 this[UserMenuItem.mealId] = mealIdByIdx[it.first]!![UserMenuModel.mealId]
             }.named("menu-items-inserted")
-        }
+        }["menu-items-inserted"] ?: throw InternalServerException("Insert failed")
 
-        redisEvent.switchOnDb(transaction, redisEvent.mutate(SetUserMenuEventState.DISHED_SAVED))
-    }
 
-    suspend fun dishesSaved(redisEvent: RedisEvent) {
-        val data = redisEvent.parseDb()["menu-items-inserted"] ?: throw InternalServerException("Insert failed")
-        val state = redisEvent.parseState<MenuInputDto>()
-
-        if (data.size < (state?.meals?.map { it.dishes }?.flatten()?.size ?: 0)) {
+        if (menuItems.size < state.meals.map { it.dishes }.flatten().size) {
             throw InternalServerException("Insert failed")
-        } else {
-            redisEvent.switchOnApi(Response(
-                success = true,
-                data = "Menu saved"
-            ))
         }
+
+        redisEvent.switchOnApi(Response(
+            success = true,
+            data = "Menu saved"
+        ))
     }
 
 
-    suspend fun selectMenu(redisEvent: RedisEvent) {
-        val transaction = newAutoCommitTransaction {
-            this add UserMenuModel
-                        .select(UserMenuModel.mealId, UserMenuModel.name)
-                        .where { UserMenuModel.userId eq redisEvent.authorizedUser!!.id }
-                        .named("select-menu")
-
-            this add UserMenuItem
-                        .select()
-                        .join(DishModel)
-                        .where { UserMenuItem.userId eq redisEvent.authorizedUser!!.id }
-                        .named("select-menu-items")
-        }
-
-        redisEvent.switchOnDb(transaction, redisEvent.mutate(GetUserMenuEventState.SELECTED))
-    }
 
     private fun List<Row>.toDto(): List<DishDto> = map {
         DishDto(
@@ -124,9 +93,22 @@ class MenuService(di: DI) : FsmService(di) {
         )
     }
 
-    suspend fun menuSelected(redisEvent: RedisEvent) {
-        val menu = redisEvent.parseDb()["select-menu"] ?: throw InternalServerException("Select failed")
-        val menuItems = redisEvent.parseDb()["select-menu-items"] ?: throw InternalServerException("Select failed")
+    suspend fun selectMenu(redisEvent: RedisEvent) {
+        val select = newAutoCommitTransaction(redisEvent) {
+            this add UserMenuModel
+                        .select(UserMenuModel.mealId, UserMenuModel.name)
+                        .where { UserMenuModel.userId eq redisEvent.authorizedUser!!.id }
+                        .named("select-menu")
+
+            this add UserMenuItem
+                        .select()
+                        .join(DishModel)
+                        .where { UserMenuItem.userId eq redisEvent.authorizedUser!!.id }
+                        .named("select-menu-items")
+        }
+
+        val menu = select["select-menu"] ?: throw InternalServerException("Select failed")
+        val menuItems = select["select-menu-items"] ?: throw InternalServerException("Select failed")
 
         val dishToMeal = menuItems.groupBy {
             it[UserMenuItem.mealId]

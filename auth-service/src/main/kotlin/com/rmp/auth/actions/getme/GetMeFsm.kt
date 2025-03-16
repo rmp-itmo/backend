@@ -12,9 +12,5 @@ class GetMeFsm(di: DI) : Fsm("getme", di) {
         on(GetMeEventState.INIT) {
             getMeService.fetchUser(this)
         }
-
-        on(GetMeEventState.RESOLVED) {
-            getMeService.resolved(this)
-        }
     }
 }

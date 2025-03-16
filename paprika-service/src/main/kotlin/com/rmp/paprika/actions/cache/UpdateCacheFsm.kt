@@ -13,10 +13,6 @@ class UpdateCacheFsm(di: DI) : Fsm("update-cache", di) {
             cacheService.saveCache(this)
         }
 
-        on(UpdateCacheState.SAVE_DISHES) {
-            cacheService.saveDishes(this)
-        }
-
         on(UpdateCacheState.SAVED) {}
     }
 }

@@ -12,13 +12,5 @@ class RefreshFsm(di: DI) : Fsm("refresh", di) {
         on(RefreshEventState.INIT) {
             refreshService.fetchUser(this)
         }
-
-        on(RefreshEventState.VERIFY) {
-            refreshService.verify(this)
-        }
-
-        on(RefreshEventState.UPDATED) {
-            refreshService.updated(this)
-        }
     }
 }

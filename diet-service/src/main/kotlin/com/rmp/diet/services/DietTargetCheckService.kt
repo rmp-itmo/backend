@@ -1,7 +1,12 @@
 package com.rmp.diet.services
 
-import com.rmp.diet.actions.target.DailyTargetCheckEventState
-import com.rmp.diet.dto.target.TargetCheckResultDto
+import com.rmp.diet.actions.target.check.DailyTargetCheckEventState
+import com.rmp.diet.dto.target.check.TargetCheckInputDto
+import com.rmp.diet.dto.target.check.TargetCheckResultDto
+import com.rmp.diet.dto.target.check.TargetCheckSupportDto
+import com.rmp.lib.exceptions.BadRequestException
+import com.rmp.lib.exceptions.ForbiddenException
+import com.rmp.lib.exceptions.InternalServerException
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.modules.diet.DietDishLogModel
 import com.rmp.lib.shared.modules.diet.DietWaterLogModel
@@ -9,123 +14,121 @@ import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.column.grEq
-import com.rmp.lib.utils.korm.column.inList
-import com.rmp.lib.utils.korm.column.lessEq
-import com.rmp.lib.utils.korm.query.batch.newAutoCommitTransaction
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
 import org.kodein.di.DI
-import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.ZoneOffset
 
 class DietTargetCheckService(di: DI): FsmService(di) {
-    private val offset = AppConf.zoneOffset
 
-    suspend fun selectTargets(redisEvent: RedisEvent) {
-        val user = redisEvent.authorizedUser ?: throw Exception("Bad user")
-        val transaction = newAutoCommitTransaction {
+    suspend fun init(redisEvent: RedisEvent) {
+        val data = redisEvent.parseData<TargetCheckInputDto>() ?: throw BadRequestException("Timestamp is not provided")
+        val user = redisEvent.authorizedUser ?: throw ForbiddenException()
+        val select = newAutoCommitTransaction(redisEvent) {
             this add UserModel
                 .select(UserModel.waterTarget, UserModel.caloriesTarget)
                 .where { UserModel.id eq user.id }
-                .named("select-targets")
         }
-        redisEvent.switchOnDb(transaction, redisEvent.mutate(DailyTargetCheckEventState.SELECTED_TARGETS))
+
+        val targets = select[UserModel]?.firstOrNull() ?: throw InternalServerException("")
+
+        val supportData = TargetCheckSupportDto(
+            targets = Pair(targets[UserModel.caloriesTarget], targets[UserModel.waterTarget]),
+            result = TargetCheckResultDto(),
+            timestamp = data.timestamp
+        )
+
+        //If dish target exist
+        if (supportData.targets?.first != null) {
+            redisEvent.switchOn(
+                supportData,
+                AppConf.redis.diet,
+                redisEvent.mutate(DailyTargetCheckEventState.CHECK_DISH))
+            return
+        }
+
+        //If water target exist and dish target not
+        if (supportData.targets?.second != null) {
+            redisEvent.switchOn(
+                supportData,
+                AppConf.redis.diet,
+                redisEvent.mutate(DailyTargetCheckEventState.CHECK_WATER))
+        }
     }
 
-    suspend fun selectDailyDishes(redisEvent: RedisEvent) {
-        val user = redisEvent.authorizedUser ?: throw Exception("Bad user")
-        val targets = redisEvent.parseDb()["select-targets"]?.firstOrNull() ?: throw Exception("Bad data")
+    private suspend fun selectCalories(redisEvent: RedisEvent): Double {
+        val supportData = redisEvent.parseData<TargetCheckSupportDto>() ?: throw InternalServerException("No support data")
+        val user = redisEvent.authorizedUser ?: throw ForbiddenException()
 
-        targets[UserModel.caloriesTarget]?.let {
-            val zoneOffset = ZoneOffset.ofHours(offset)
-            val midnightTimestamp = LocalDate.now().atStartOfDay(zoneOffset).toEpochSecond()
-            val currTimestamp = LocalDateTime.now().toEpochSecond(zoneOffset)
-
-            val transaction = newAutoCommitTransaction {
-                this add DietDishLogModel
-                    .select(DietDishLogModel.dish)
-                    .where { DietDishLogModel.userId eq user.id }
-                    .andWhere { DietDishLogModel.createdAt lessEq currTimestamp }
-                    .andWhere { DietDishLogModel.createdAt grEq midnightTimestamp }
-                    .named("select-daily-dishes")
-            }
-
-            redisEvent.switchOnDb(transaction, redisEvent.mutate(DailyTargetCheckEventState.SELECTED_DAILY_DISHES))
-        } ?: redisEvent.switchOn(TargetCheckResultDto(), AppConf.redis.diet,
-            redisEvent.mutate(
-                DailyTargetCheckEventState.CHECKED_DISHES))
-    }
-
-    suspend fun selectCalories(redisEvent: RedisEvent) {
-        val dishes = redisEvent.parseDb()["select-daily-dishes"] ?: throw Exception("Bad data")
-
-        val transaction = newAutoCommitTransaction {
-            this add DishModel
+        val dailyDishes = newAutoCommitTransaction(redisEvent) {
+            this add DietDishLogModel
                 .select(DishModel.calories)
-                .where { DishModel.id inList dishes.map { it[DishModel.id] } }
-                .named("select-calories")
-        }
-        redisEvent.switchOnDb(transaction, redisEvent.mutate(DailyTargetCheckEventState.SELECTED_CALORIES))
+                .join(DishModel)
+                .where { DietDishLogModel.userId eq user.id }
+                .andWhere { DietDishLogModel.time grEq  supportData.timestamp}
+        }[DietDishLogModel] ?: listOf()
+
+        return dailyDishes.sumOf { it[DishModel.calories] }
     }
 
     suspend fun checkDishes(redisEvent: RedisEvent) {
-        val calories = redisEvent.parseDb()["select-calories"] ?: throw Exception("Bad data")
-        val targets = redisEvent.parseDb()["select-targets"]?.firstOrNull() ?: throw Exception("Bad data")
-        val caloriesTarget = targets[UserModel.caloriesTarget] ?: throw Exception("Bad data")
+        val supportData = redisEvent.parseData<TargetCheckSupportDto>() ?: throw InternalServerException("No support data")
+        val targets = supportData.targets ?: throw Exception("FSM state error")
+        targets.first ?: throw Exception("Bad calories value provided")
 
-        val sum = calories.sumOf { it[DishModel.calories] }
+        val calories = selectCalories(redisEvent.mutate(redisEvent.mutate(supportData)))
 
-        redisEvent.switchOn(TargetCheckResultDto(caloriesTarget < sum), AppConf.redis.diet,
-            redisEvent.mutate(
-                DailyTargetCheckEventState.CHECKED_DISHES
-        ))
+        supportData.result.dishes = targets.first!! < calories
+
+        redisEvent.switchOn(supportData, AppConf.redis.diet, redisEvent.mutate(DailyTargetCheckEventState.CHECK_WATER))
     }
 
-    suspend fun selectDailyWater(redisEvent: RedisEvent) {
-        val data = redisEvent.parseData<TargetCheckResultDto>() ?: throw Exception("Bad data")
-
+    suspend fun checkWater(redisEvent: RedisEvent) {
+        val data = redisEvent.parseData<TargetCheckSupportDto>() ?: throw InternalServerException("No support data")
         val user = redisEvent.authorizedUser ?: throw Exception("Bad user")
-        val targets = redisEvent.parseDb()["select-targets"]?.firstOrNull() ?: throw Exception("Bad data")
+        val waterTarget = data.targets?.second
 
-        targets[UserModel.waterTarget]?.let {
-            val zoneOffset = ZoneOffset.ofHours(offset)
-            val midnightTimestamp = LocalDate.now().atStartOfDay(zoneOffset).toEpochSecond()
-            val currTimestamp = LocalDateTime.now().toEpochSecond(zoneOffset)
-
-            val transaction = newAutoCommitTransaction {
+        if (waterTarget != null) {
+            val dailyWater = newAutoCommitTransaction(redisEvent) {
                 this add DietWaterLogModel
                     .select(DietWaterLogModel.volume)
                     .where { DietWaterLogModel.userId eq user.id }
-                    .andWhere { DietWaterLogModel.createdAt lessEq currTimestamp }
-                    .andWhere { DietWaterLogModel.createdAt grEq midnightTimestamp }
-                    .named("select-daily-water")
-            }
+                    .andWhere { DietWaterLogModel.time grEq data.timestamp }
+            }[DietWaterLogModel] ?: listOf()
 
-            redisEvent.switchOnDb(transaction, redisEvent.mutate(DailyTargetCheckEventState.SELECTED_DAILY_WATER, data))
-        } ?: redisEvent.switchOn(data, AppConf.redis.diet,
-            redisEvent.mutate(DailyTargetCheckEventState.CHECKED_WATER))
+            val sum = dailyWater.sumOf { it[DietWaterLogModel.volume] }
+
+            data.result.water = waterTarget < sum
+        }
+        redisEvent.switchOn(data, AppConf.redis.diet, redisEvent.mutate(DailyTargetCheckEventState.UPDATE_STREAKS))
     }
 
+    suspend fun updateStreaks(redisEvent: RedisEvent) {
+        val data = redisEvent.parseData<TargetCheckSupportDto>() ?: throw InternalServerException("No support data")
+        val user = redisEvent.authorizedUser ?: throw Exception("Bad user")
 
-    suspend fun checkWater(redisEvent: RedisEvent) {
-        val data = redisEvent.parseData<TargetCheckResultDto>() ?: throw Exception("Bad data")
-        val water = redisEvent.parseDb()["select-daily-water"] ?: throw Exception("Bad data")
-        val targets = redisEvent.parseDb()["select-targets"]?.firstOrNull() ?: throw Exception("Bad data")
-        val waterTarget = targets[UserModel.waterTarget] ?: throw Exception("Bad data")
+        val currentStreaks = newAutoCommitTransaction(redisEvent) {
+            this add UserModel
+                .select(UserModel.waterStreak, UserModel.caloriesStreak)
+                .where { UserModel.id eq user.id }
+        }[UserModel]?.firstOrNull() ?: throw InternalServerException("Streaks select error")
 
-        val sum = water.sumOf { it[DietWaterLogModel.volume] }
+        newAutoCommitTransaction(redisEvent) {
+            this add UserModel
+                .update(UserModel.id eq user.id) {
+                    if (data.result.water == true) {
+                        UserModel.waterStreak.set(currentStreaks[UserModel.waterStreak] + 1)
+                    } else {
+                        UserModel.waterStreak.set(UserModel.waterStreak.defaultValue ?: 0)
+                    }
 
-        data.water = waterTarget < sum
+                    if (data.result.dishes == true) {
+                        UserModel.caloriesStreak.set(currentStreaks[UserModel.caloriesStreak] + 1)
+                    } else {
+                        UserModel.caloriesStreak.set(UserModel.caloriesStreak.defaultValue ?: 0)
+                    }
+                }.named("update-streaks")
+        }["update-streaks"]
 
-        redisEvent.switchOn(data, AppConf.redis.diet, redisEvent.mutate(
-            DailyTargetCheckEventState.CHECKED_WATER
-        ))
-    }
-
-    suspend fun checked(redisEvent: RedisEvent) {
-        val data = redisEvent.parseData<TargetCheckResultDto>() ?: throw Exception("Bad data")
-
-        redisEvent.switchOnApi(data)
+        redisEvent.switchOnApi(data.result)
     }
 }

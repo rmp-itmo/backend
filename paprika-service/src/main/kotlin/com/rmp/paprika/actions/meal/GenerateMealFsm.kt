@@ -13,20 +13,8 @@ class GenerateMealFsm(di: DI) : Fsm("generate-meal", di) {
             paprikaService.initMealSolution(this)
         }
 
-        on(GenerateMealState.CACHE_FETCHED) {
-            paprikaService.cacheFetched(this)
-        }
-
-        on(GenerateMealState.SOLVED_BY_CACHE) {
-            paprikaService.solvedByCache(this)
-        }
-
         on(GenerateMealState.SEARCH_DISHES) {
             paprikaService.searchDishes(this)
-        }
-
-        on(GenerateMealState.DISHES_FETCHED) {
-            paprikaService.dishesFetched(this)
         }
     }
 }
