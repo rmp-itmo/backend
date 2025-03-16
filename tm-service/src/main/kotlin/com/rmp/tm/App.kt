@@ -9,6 +9,8 @@ import com.rmp.lib.shared.modules.dish.UserMenuItem
 import com.rmp.lib.shared.modules.dish.UserMenuModel
 import com.rmp.lib.shared.modules.paprika.CacheModel
 import com.rmp.lib.shared.modules.paprika.CacheToDishModel
+import com.rmp.lib.shared.modules.user.UserActivityLevelTypeModel
+import com.rmp.lib.shared.modules.user.UserGoalTypeModel
 import com.rmp.lib.shared.modules.user.UserLoginModel
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.kodein.bindSingleton
@@ -36,6 +38,7 @@ fun main() {
         password = ServiceConf.dbConf.password
     }
 
+    TableRegister.register(DbType.PGSQL, UserGoalTypeModel, UserActivityLevelTypeModel)
     TableRegister.register(DbType.PGSQL, UserModel, UserLoginModel)
     TableRegister.register(DbType.PGSQL, DishTypeModel, DishModel)
     TableRegister.register(DbType.PGSQL, CacheModel, CacheToDishModel)
@@ -46,13 +49,56 @@ fun main() {
         forceRecreate = true,
         excludedFromRecreation = mutableSetOf(DishModel, DishTypeModel)
     ) {
+
+        // User goals
+        this add UserGoalTypeModel.insert {
+            it[name] = "Lose"
+            it[coefficient] = 0.85F
+        }.named("insert-lose-goal-type")
+
+        this add UserGoalTypeModel.insert {
+            it[name] = "Maintain"
+            it[coefficient] = 1.0F
+        }.named("insert-maintain-goal-type")
+
+        this add UserGoalTypeModel.insert {
+            it[name] = "Gain"
+            it[coefficient] = 1.15F
+        }.named("insert-gain-goal-type")
+
+        // User activity
+        this add UserActivityLevelTypeModel.insert {
+            it[name] = "Low"
+            it[caloriesCoefficient] = 1.2F
+            it[waterCoefficient] = 0.03F
+        }.named("insert-low-activity-type")
+
+        this add UserActivityLevelTypeModel.insert {
+            it[name] = "Medium"
+            it[caloriesCoefficient] = 1.55F
+            it[waterCoefficient] = 0.04F
+        }.named("insert-medium-activity-type")
+
+        this add UserActivityLevelTypeModel.insert {
+            it[name] = "High"
+            it[caloriesCoefficient] = 1.75F
+            it[waterCoefficient] = 0.05F
+        }.named("insert-high-activity-type")
+
+        // User
         this add UserModel.insert {
             it[name] = "User"
-            it[login] = "login"
+            it[email] = "login"
             it[password] = CryptoUtil.hash("password")
             it[waterTarget] = 1.2
             it[caloriesTarget] = 4.1
-        }.named("insert")
+            it[high] = 185.0F
+            it[weight] = 73.0F
+            it[activityLevelType] = 1
+            it[goalType] = 1
+            it[isMale] = true
+            it[age] = 25
+        }.named("insert-base-user")
     }
 
     val kodein = DI {

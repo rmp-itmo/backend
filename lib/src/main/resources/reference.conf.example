@@ -21,5 +21,6 @@ application {
     logger = "logger-channel"
     paprika = "paprika-channel"
     diet = "diet-channel"
+    user = "user-channel"
   }
 }

@@ -10,34 +10,43 @@ import org.kodein.di.DI
 
 class UserController(override val di: DI) : KodeinController() {
     override fun Route.registerRoutes() {
-        authenticate("default") {
             route("users") {
-                route("menu") {
-                    post {
-                        call.process("set-user-menu", AppConf.redis.diet)
-                    }
-                    get {
-                        call.process("get-user-menu", AppConf.redis.diet)
-                    }
+
+                post("create") {
+                    call.processUnauthorized("create-user", AppConf.redis.user)
                 }
-                route("log") {
-                    post("water") {
-                        call.process("user-upload-water-log", AppConf.redis.diet)
+
+                authenticate("default") {
+                    get {
+                        call.process("get-user", AppConf.redis.user)
                     }
 
-                    post("dish") {
-                        call.process("user-upload-dish-log", AppConf.redis.diet)
+                    route("menu") {
+                        post {
+                            call.process("set-user-menu", AppConf.redis.diet)
+                        }
+                        get {
+                            call.process("get-user-menu", AppConf.redis.diet)
+                        }
+                    }
+                    route("log") {
+                        post("water") {
+                           call.process("user-upload-water-log", AppConf.redis.diet)
+                        }
+
+                        post("dish") {
+                           call.process("user-upload-dish-log", AppConf.redis.diet)
+                        }
+                    }
+                    route("target") {
+                        post("check") {
+                            call.process("user-daily-target-check", AppConf.redis.diet)
+                        }
+                        post("set") {
+                            call.process("user-daily-target-set", AppConf.redis.diet)
+                        }
                     }
                 }
-                route("target") {
-                    post("check") {
-                        call.process("user-daily-target-check", AppConf.redis.diet)
-                    }
-                    post("set") {
-                        call.process("user-daily-target-set", AppConf.redis.diet)
-                    }
-                }
-            }
         }
     }
 }

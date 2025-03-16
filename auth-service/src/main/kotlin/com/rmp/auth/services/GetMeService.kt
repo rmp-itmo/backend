@@ -15,7 +15,7 @@ class GetMeService(di: DI): FsmService(di) {
 
         val select = newAutoCommitTransaction(redisEvent) {
             this add UserModel
-                .select(UserModel.id, UserModel.login, UserModel.name)
+                .select(UserModel.id, UserModel.email, UserModel.name)
                 .where { UserModel.id eq data.id }
 
             this add UserLoginModel
@@ -28,7 +28,7 @@ class GetMeService(di: DI): FsmService(di) {
 
         redisEvent.switchOnApi(UserOutputDto(
             user[UserModel.id],
-            user[UserModel.login],
+            user[UserModel.email],
             user[UserModel.name],
             lastLogin[UserLoginModel.lastLogin],
         ))
