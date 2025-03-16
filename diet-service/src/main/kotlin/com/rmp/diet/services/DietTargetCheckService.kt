@@ -1,9 +1,9 @@
 package com.rmp.diet.services
 
-import com.rmp.diet.actions.target.DailyTargetCheckEventState
-import com.rmp.diet.dto.target.TargetCheckInputDto
-import com.rmp.diet.dto.target.TargetCheckResultDto
-import com.rmp.diet.dto.target.TargetCheckSupportDto
+import com.rmp.diet.actions.target.check.DailyTargetCheckEventState
+import com.rmp.diet.dto.target.check.TargetCheckInputDto
+import com.rmp.diet.dto.target.check.TargetCheckResultDto
+import com.rmp.diet.dto.target.check.TargetCheckSupportDto
 import com.rmp.lib.exceptions.BadRequestException
 import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.exceptions.InternalServerException

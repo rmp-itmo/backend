@@ -1,4 +1,4 @@
-package com.rmp.diet.dto.target
+package com.rmp.diet.dto.target.check
 
 import com.rmp.lib.utils.redis.SerializableClass
 import kotlinx.serialization.Serializable

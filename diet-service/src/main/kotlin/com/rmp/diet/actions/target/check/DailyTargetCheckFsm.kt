@@ -1,4 +1,4 @@
-package com.rmp.diet.actions.target
+package com.rmp.diet.actions.target.check
 
 import com.rmp.diet.services.DietTargetCheckService
 import com.rmp.lib.utils.redis.fsm.Fsm

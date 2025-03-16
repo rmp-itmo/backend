@@ -3,14 +3,12 @@ package com.rmp.diet
 import com.rmp.diet.actions.dish.log.DishLogFsm
 import com.rmp.diet.actions.dish.service.create.DishServiceCreateFsm
 import com.rmp.diet.actions.dish.service.get.DishServiceGetAllFsm
-import com.rmp.diet.actions.target.DailyTargetCheckFsm
+import com.rmp.diet.actions.target.check.DailyTargetCheckFsm
+import com.rmp.diet.actions.target.set.DailyTargetSetFsm
 import com.rmp.diet.actions.user.menu.get.GetUserMenuFsm
 import com.rmp.diet.actions.user.menu.set.SetUserMenuFsm
 import com.rmp.diet.actions.water.WaterLogFsm
-import com.rmp.diet.services.DietLogService
-import com.rmp.diet.services.DietTargetCheckService
-import com.rmp.diet.services.DishService
-import com.rmp.diet.services.MenuService
+import com.rmp.diet.services.*
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.modules.diet.DietDishLogModel
 import com.rmp.lib.shared.modules.diet.DietWaterLogModel
@@ -41,6 +39,7 @@ fun main() {
         bindSingleton { DietTargetCheckService(it) }
         bindSingleton { DishService(it) }
         bindSingleton { MenuService(it) }
+        bindSingleton { DailyTargetSetService(it) }
 
         bindSingleton {
             FsmRouter.routing(AppConf.redis.diet, it) {
@@ -51,6 +50,7 @@ fun main() {
                 fsm(DishServiceGetAllFsm(it))
                 fsm(SetUserMenuFsm(it))
                 fsm(GetUserMenuFsm(it))
+                fsm(DailyTargetSetFsm(it))
             }
         }
     }
