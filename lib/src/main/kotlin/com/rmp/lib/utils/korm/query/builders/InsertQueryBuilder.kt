@@ -9,8 +9,9 @@ import com.rmp.lib.utils.korm.query.QueryType
 
 class InsertQueryBuilder(table: Table) : QueryBuilder(table) {
     private fun addBasePart(row: Row) {
+        append("insert into ")
         append(table.tableName_)
-        append("(")
+        append(" (")
         append(row.columns.joinToString(",") { it.name })
         append(") values ")
     }

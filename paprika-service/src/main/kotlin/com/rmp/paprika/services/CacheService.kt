@@ -1,17 +1,19 @@
 package com.rmp.paprika.services
 
+import com.rmp.lib.exceptions.BadRequestException
+import com.rmp.lib.exceptions.InternalServerException
+import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.shared.modules.paprika.CacheModel
 import com.rmp.lib.shared.modules.paprika.CacheToDishModel
-import com.rmp.lib.utils.korm.Row
 import com.rmp.lib.utils.korm.column.*
-import com.rmp.lib.utils.korm.insert
+import com.rmp.lib.utils.korm.query.builders.SelectQueryBuilder
 import com.rmp.lib.utils.korm.query.builders.filter.Operator
 import com.rmp.lib.utils.korm.query.builders.filter.and
+import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
+import com.rmp.paprika.dto.GenerateMenuStateDto
 import com.rmp.paprika.dto.PaprikaInputDto
-import com.rmp.paprika.dto.meal.MealOutputDto
 import org.kodein.di.DI
-import java.lang.Exception
 
 class CacheService(di: DI) : FsmService(di) {
     private fun createMinMaxCond(min: Double, max: Double, field: Column<Double>): Operator =
@@ -24,88 +26,85 @@ class CacheService(di: DI) : FsmService(di) {
             (CacheModel.dishCount lessEq 10000)
     }
 
-    private fun excludeDishesFromList(list: List<Int>): Operator {
-        val ids = CacheToDishModel.select().where {
-            (CacheToDishModel.dish inList list)
-        }
-        // It`ll be separated into 2 states of FSM: 1 - fetch ids, 2 - create Operator
-
-        val idsList = mutableListOf<Int>()
-            //.map { it[EatingCacheDishesModel.eatingCache].value }.distinct()
-
-        if (idsList.isEmpty())
-            return CacheModel.id notInList listOf(0)
-
-        return CacheModel.id notInList idsList
-    }
-
-    fun saveEating(eatingOutputDto: MealOutputDto, paprikaInputDto: PaprikaInputDto, index: Int): Int {
-        val eatingInput = paprikaInputDto.eatings[index]
-        val micronutrients = eatingOutputDto.idealParams ?: throw Exception()
-        val cache = CacheModel.insert {
-            it[calories] = micronutrients.calories
-            it[protein] = micronutrients.protein
-            it[fat] = micronutrients.fat
-            it[carbohydrates] = micronutrients.carbohydrates
-
-            it[size] = eatingInput.size
-
-            if (eatingInput.type != 0)
-                it[type] = eatingInput.type
-            it[dishCount] = eatingOutputDto.dishes.size
-
-            it[useTimesFromCreation] = 0
-            it[useTimesFromLastScrap] = 0
-            it[onRemove] = false
-        }
-
-        // retrieve id on the next step
-        val cacheId = 1
-
-        val insert = CacheToDishModel.batchInsert(eatingOutputDto.dishes) {
-            this[CacheToDishModel.dish] = it.id
-            this[CacheToDishModel.mealCache] = cacheId
-        }.named("Insert-Cache-Dishes")
-
-        return cacheId
-    }
-
-    fun saveUserDiet(userId: Int, eatingName: String, cacheId: Int) {}
-
-    fun findEating(paprikaInputDto: PaprikaInputDto, index: Int) {
-        val eatingOptions = paprikaInputDto.eatings[index]
+    fun findMeal(paprikaInputDto: PaprikaInputDto, index: Int): SelectQueryBuilder<*> {
+        val mealOptions = paprikaInputDto.meals[index]
         val params = ParamsManager.process {
-            withSize(eatingOptions.size)
+            withSize(mealOptions.size)
             fromPaprikaInput(paprikaInputDto)
         }.params
 
-        println(params)
-        println(paprikaInputDto)
-        println(eatingOptions)
-
-        val cache = CacheModel.select().where {
-            excludeDishesFromList(paprikaInputDto.excludeDishes).apply { println("Excluded $this") } and
-            createMinMaxCond(params.minProtein, params.maxProtein, CacheModel.protein).apply { println("Protein $this") } and
-            createMinMaxCond(params.minFat, params.maxFat, CacheModel.fat).apply { println("Fat $this") } and
+        return CacheModel.select().where {
+            createMinMaxCond(params.minProtein, params.maxProtein, CacheModel.protein) and
+            createMinMaxCond(params.minFat, params.maxFat, CacheModel.fat) and
             createMinMaxCond(
                 params.minCarbohydrates,
                 params.maxCarbohydrates,
                 CacheModel.carbohydrates
-            ).apply { println("Carbo $this") } and
-            createMinMaxCond(params.calories * 0.99, params.calories * 1.01, CacheModel.calories).apply { println("Calories $this") } and
-            dishCountCond(eatingOptions.dishCount).apply { println("Count $this") }
+            ) and
+            createMinMaxCond(params.calories * 0.99, params.calories * 1.01, CacheModel.calories) and
+            dishCountCond(mealOptions.dishCount)
         }
-//            .toList().apply { println(this@apply) }.filter {
-//            it.dishes.all { dish -> !paprikaInputDto.excludeDishes.contains(dish.idValue) }
-//        }
     }
 
-    fun updateCacheUsage(rows: List<Row>) {
-        val ids = rows.map { it[CacheModel.id] }
+    fun findIncompatible(excludedDishes: List<Long>): SelectQueryBuilder<*> =
+        CacheToDishModel
+            .select(CacheToDishModel.mealCache)
+            .where {
+                CacheToDishModel.dish inList excludedDishes
+            }
 
-        CacheModel.update(CacheModel.id inList ids) {
-            CacheModel.useTimesFromCreation += 1
-            CacheModel.useTimesFromLastScrap += 1
-        }
+    fun getMealDishes(cacheId: Long): SelectQueryBuilder<*> =
+        CacheToDishModel
+            .select()
+            .join(DishModel)
+            .where {
+                CacheToDishModel.mealCache eq cacheId
+            }
+
+    suspend fun saveCache(redisEvent: RedisEvent) {
+        val state = redisEvent.parseData<GenerateMenuStateDto>() ?: throw BadRequestException("")
+        val ids = state.generated.mapNotNull { it.cacheId }
+
+        var i = 0
+        val newCache = state.generated.filter { it.cacheId == null }
+
+        val newCacheEntries = newTransaction(redisEvent) {
+            if (ids.isNotEmpty())
+                this add CacheModel.update(CacheModel.id inList ids) {
+                    CacheModel.useTimesFromCreation += 1
+                    CacheModel.useTimesFromLastScrap += 1
+                }.named("update-exist")
+
+            if (newCache.isNotEmpty())
+                this add CacheModel.batchInsert(newCache) { it, _ ->
+                        this[CacheModel.calories] = it.idealParams?.calories
+                        this[CacheModel.protein] = it.idealParams?.protein
+                        this[CacheModel.fat] = it.idealParams?.fat
+                        this[CacheModel.carbohydrates] = it.idealParams?.carbohydrates
+                        this[CacheModel.size] = state.paprikaInputDto.meals[i].size
+                        this[CacheModel.type] = state.paprikaInputDto.meals[i].type
+                        this[CacheModel.dishCount] = it.dishes.size
+
+                        this[CacheModel.useTimesFromCreation] = 0
+                        this[CacheModel.useTimesFromLastScrap] = 0
+                        this[CacheModel.onRemove] = false
+
+                        i += 1
+                    }.named("insert-new")
+        }["insert-new"] ?: listOf()
+
+        val dishes: List<Pair<Long, Long>> =
+            newCache.mapIndexed { index, it ->
+                it.dishes.map { dish ->
+                    newCacheEntries[index][CacheModel.id] to dish.id
+                }
+            }.flatten()
+
+        autoCommitTransaction(redisEvent) {
+            this add CacheToDishModel.batchInsert(dishes) { (cache, dish), _ ->
+                this[CacheToDishModel.dish] = dish
+                this[CacheToDishModel.mealCache] = cache
+            }.named("Insert-Cache-Dishes")
+        }["Insert-Cache-Dishes"] ?: throw InternalServerException("Cache saving failed")
     }
 }

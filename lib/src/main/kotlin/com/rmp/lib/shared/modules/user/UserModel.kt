@@ -7,4 +7,10 @@ object UserModel: IdTable("user_model") {
 
     val login = text("login")
     val password = text("password")
+
+    val waterTarget = double("water_target").nullable()
+    val caloriesTarget = double("calories_target").nullable()
+
+    val waterStreak = int("water_streak").default(0)
+    val caloriesStreak = int("calories_streak").default(0)
 }

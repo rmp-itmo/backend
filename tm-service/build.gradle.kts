@@ -9,15 +9,25 @@ dependencies {
     implementation(project(":lib"))
 }
 
+val mainClassName = "com.rmp.tm.AppKt"
+
 application {
-    mainClass.set("com.rmp.tm.AppKt")
+    mainClass.set(mainClassName)
+}
+
+tasks.shadowJar {
+    manifest {
+        attributes(
+            "Main-Class" to mainClassName
+        )
+    }
 }
 
 tasks.named("build") {
     doLast {
-        delete("$rootDir/docker/jvm-services/dist/tm.jar")
+        delete("$rootDir/docker/jvm/dist/tm.jar")
         copy {
-            from("$rootDir/tm-service/build/libs/tm-service-all.jar")
+            from("$rootDir/tm-service/build/libs/tm-service-$version-all.jar")
             into("$rootDir/docker/jvm/dist")
             rename {
                 "tm.jar"

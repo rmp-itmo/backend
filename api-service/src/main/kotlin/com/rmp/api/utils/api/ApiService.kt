@@ -1,6 +1,7 @@
-package com.rmp.api.modules.auth.service
+package com.rmp.api.utils.api
 
 import com.rmp.lib.shared.conf.AppConf
+import com.rmp.lib.shared.modules.auth.dto.AuthorizedUser
 import com.rmp.lib.utils.redis.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
@@ -44,9 +45,9 @@ class ApiService(di: DI): PubSubService(AppConf.redis.api, di) {
         }
     }
 
-    suspend fun process(eventType: String, data: String, to: String): CompletableDeferred<String> {
+    suspend fun process(eventType: String, data: String, to: String, authorizedUser: AuthorizedUser? = null): CompletableDeferred<String> {
         val action = "${System.currentTimeMillis()}-$eventType"
-        val redisEvent = RedisEvent(action, AppConf.redis.api, eventType, RedisEventState(RedisEventState.State.INIT), data)
+        val redisEvent = RedisEvent(action, AppConf.redis.api, eventType, RedisEventState(RedisEventState.State.INIT), data).authorize(authorizedUser)
 
         val result = CompletableDeferred<String>()
 

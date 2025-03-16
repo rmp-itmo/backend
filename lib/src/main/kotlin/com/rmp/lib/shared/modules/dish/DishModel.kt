@@ -1,5 +1,6 @@
 package com.rmp.lib.shared.modules.dish
 
+import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.korm.IdTable
 
 object DishModel: IdTable("dish") {
@@ -13,4 +14,6 @@ object DishModel: IdTable("dish") {
     val carbohydrates = double("carbohydrates")
     val cookTime = int("cook_time")
     val type = reference("type", DishTypeModel)
+    val author = reference("author", UserModel).nullable().default(null)
+    val private = bool("private").default(true)
 }

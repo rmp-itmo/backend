@@ -52,10 +52,12 @@ class Row private constructor() {
         }
     }
 
+    @Suppress("UNCHECKED_CAST")
     operator fun <T> get(column: Column<T>): T {
-        if (!data.containsKey(column))
+        if (!data.containsKey(column)) {
             throw Exception("Unknown column")
-        return data[column]?.let { column.type.readValue(it) } ?: throw Exception("Unknown column")
+        }
+        return data[column]?.let { column.type.readValue(it) } as T
     }
 
     operator fun <T> set(column: Column<T>, value: T?) {
@@ -71,6 +73,7 @@ class Row private constructor() {
         inc += Triple(this, UpdateOp.DEC, value)
     }
 
+    @JvmName("rowColumnSet")
     infix fun <T> Column<T>.set(value: T) {
         this@Row[this] = value
     }

@@ -1,9 +1,8 @@
 package com.rmp.tm.korm
 
-import com.rmp.lib.utils.korm.Row
-import com.rmp.lib.utils.korm.RowDto
-import com.rmp.lib.utils.korm.TableRegister
+import com.rmp.lib.utils.korm.*
 import com.rmp.lib.utils.korm.query.*
+import com.rmp.lib.utils.korm.query.batch.BatchBuilder
 import com.rmp.lib.utils.redis.RedisEvent
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
@@ -13,8 +12,8 @@ import kotlinx.coroutines.ObsoleteCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.actor
 import java.sql.Connection
-import com.rmp.lib.utils.korm.initTable
 import com.rmp.lib.utils.log.Logger
+import org.postgresql.util.PSQLException
 
 object TransactionManager {
     private lateinit var ds: HikariDataSource
@@ -33,53 +32,28 @@ object TransactionManager {
         for (e in this) {
             when (e) {
                 is QueryEvent.BatchQueryEvent -> {
-                    var (connectionName, connection) = getConnection(e.redisEvent.tid)
-                    var lastCommitOrRollback = false
+                    val (connectionName, executionResult) = processBatchQuery(e.query, getConnection(e.redisEvent.tid))
 
-                    val executionResult = e.query.queries.mapNotNull { (label, query) ->
-                        lastCommitOrRollback = (query.queryType == QueryType.COMMIT.value || query.queryType == QueryType.ROLLBACK.value)
-
-                        Logger.debug("[${QueryType.getByValue(query.queryType)}] ${query.sql} ${query.params}, TID=$connectionName, Conn=$connection", "database")
-
-                        val (tid, conn, executionResult) = processSingleQuery(connectionName, connection, query)
-
-                        connectionName = tid
-                        connection = conn
-
-                        Logger.debug("Result: $executionResult; \n CurTid=$tid \n CurConn=$conn", "database")
-
-                        if (executionResult == null) null
-                        else label to executionResult
-                    }.toMap()
-
-                    // При обработке commit и rollback запросов автоматически генерируется новое подключение, чтобы
-                    // обработка дальнейших запросов автоматически продолжалось и не пришлось каждый раз после коммита
-                    // в ручную инициализировать подключение
-                    // Из-за такого поведения, может возникнуть ситуация, когда commit стоит последним, но временное подключение
-                    // все равно создалось, в этом случае его надо убить.
-                    if (lastCommitOrRollback && connectionName != null && connection != null) {
-                        commit(connectionName!!, connection!!)
-                        connectionName = null
-                        connection = null
-                    }
-                    // Обратная ситуация, когда мы не остановились на коммите (или даже если их вообще не было и мы работали в одном контексте)
-                    // Следует дописать в active текущее подключение, чтобы пользователю не улетел tid которого на самом деле нет.
-                    else if (!lastCommitOrRollback && connectionName != null && connection != null) {
-                        active += Pair(connectionName!!, connection!!)
-                    }
-
-                    if (executionResult.isNotEmpty())
-                        processedChannel.send(Pair(e.redisEvent, QueryResult(
-                            connectionName,
-                            executionResult
-                        )))
+                    processedChannel.send(Pair(e.redisEvent, QueryResult(
+                        connectionName,
+                        executionResult
+                    )))
                 }
                 is QueryEvent.SingleQueryEvent -> {
                     val (name, connection) = getConnection(e.redisEvent.tid)
 
                     if (connection == null) continue
 
-                    val (tidAfterProcess, _, executionResult) = processSingleQuery(name, connection, e.query)
+                    val (tidAfterProcess, _, executionResult) = try {
+                        processSingleQuery(name, connection, e.query)
+                    } catch (ex: Exception) {
+                        Logger.debugException(ex.message, ex, "database")
+                        processedChannel.send(Pair(e.redisEvent, QueryResult(
+                            null,
+                            mutableMapOf("" to ExecutionResult.empty())
+                        )))
+                        continue
+                    }
 
                     // Если на момент выполнения не было открыто подключения,
                     // get connection вернет пустое null имя и временное подключение connection
@@ -186,6 +160,51 @@ object TransactionManager {
         }
     }
 
+    private fun processBatchQuery(batch: BatchQuery, init: Pair<String?, Connection?> = Pair(null, null)): Pair<String?, Map<String, ExecutionResult>> {
+        var (connectionName, connection) = init
+
+        var lastCommitOrRollback = false
+
+        val executionResult = batch.queries.mapNotNull { (label, query) ->
+            lastCommitOrRollback = (query.queryType == QueryType.COMMIT.value || query.queryType == QueryType.ROLLBACK.value)
+
+            Logger.debug("[${QueryType.getByValue(query.queryType)}] ${query.sql} ${query.params}, TID=$connectionName, Conn=$connection", "database")
+
+            val (tid, conn, executionResult) = try {
+                processSingleQuery(connectionName, connection, query)
+            } catch (ex: Exception) {
+                Logger.debugException(ex.message, ex, "database")
+                return@mapNotNull label to ExecutionResult.empty()
+            }
+
+            connectionName = tid
+            connection = conn
+
+            Logger.debug("Result: $executionResult; \n CurTid=$tid \n CurConn=$conn", "database")
+
+            if (executionResult == null) null
+            else label to executionResult
+        }.toMap()
+
+        // При обработке commit и rollback запросов автоматически генерируется новое подключение, чтобы
+        // обработка дальнейших запросов автоматически продолжалось и не пришлось каждый раз после коммита
+        // в ручную инициализировать подключение
+        // Из-за такого поведения, может возникнуть ситуация, когда commit стоит последним, но временное подключение
+        // все равно создалось, в этом случае его надо убить.
+        if (lastCommitOrRollback && connectionName != null && connection != null) {
+            commit(connectionName!!, connection!!)
+            connectionName = null
+            connection = null
+        }
+        // Обратная ситуация, когда мы не остановились на коммите (или даже если их вообще не было и мы работали в одном контексте)
+        // Следует дописать в active текущее подключение, чтобы пользователю не улетел tid которого на самом деле нет.
+        else if (!lastCommitOrRollback && connectionName != null && connection != null) {
+            active += Pair(connectionName!!, connection!!)
+        }
+
+        return connectionName to executionResult
+    }
+
     private fun commit(name: String, connection: Connection): List<RowDto> {
         Logger.debug("COMMIT AND CLOSE THE CONNECTION $connection", "database")
         connection.commit()
@@ -239,15 +258,28 @@ object TransactionManager {
         })
     }
 
-    fun initTables(forceRecreate: Boolean) {
+    fun initTables(forceRecreate: Boolean = false, excludedFromRecreation: Set<Table> = mutableSetOf(), initScript: (BatchBuilder.() -> Unit)? = null) {
         val connection = ds.connection
         TableRegister.tables.forEach { (_, entry) ->
             val (type, table) = entry
-            val query = table.initTable(dbType = type, forceRecreate = forceRecreate)
-            Logger.debug("Init table ${table.tableName_} - ${query.sql}", "database")
-            executeNoResult(connection, query)
+            val query = table.initTable(dbType = type, forceRecreate = forceRecreate && table !in excludedFromRecreation)
+            Logger.debug("Init table ${table.tableName_} - ${query.sql} $connection", "database")
+            try {
+                executeNoResult(connection, query)
+            } catch (e: PSQLException) {
+                val relationNotFound = Regex("ERROR: relation \"([^.]*)\" does not exist")
+                val (tableName) = relationNotFound.find(e.message ?: "")?.destructured ?: throw e
+                if (e.message?.matches(relationNotFound) == true) {
+                    connection.rollback()
+                    connection.close()
+                    throw Exception("Failed to init table '${table.tableName_}' relation '$tableName' must be created first")
+                } else throw e
+            }
         }
         connection.commit()
         connection.close()
+
+        val query = BatchBuilder.buildAutoCommit(initScript ?: return)
+        processBatchQuery(query)
     }
 }

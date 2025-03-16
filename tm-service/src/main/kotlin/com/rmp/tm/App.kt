@@ -1,27 +1,34 @@
 package com.rmp.tm
 
 import com.rmp.lib.shared.conf.AppConf
+import com.rmp.lib.shared.modules.diet.DietDishLogModel
+import com.rmp.lib.shared.modules.diet.DietWaterLogModel
 import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.shared.modules.dish.DishTypeModel
+import com.rmp.lib.shared.modules.dish.UserMenuItem
+import com.rmp.lib.shared.modules.dish.UserMenuModel
 import com.rmp.lib.shared.modules.paprika.CacheModel
 import com.rmp.lib.shared.modules.paprika.CacheToDishModel
+import com.rmp.lib.shared.modules.user.UserLoginModel
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.kodein.bindSingleton
 import com.rmp.lib.utils.korm.DbType
 import com.rmp.lib.utils.korm.TableRegister
+import com.rmp.lib.utils.korm.insert
 import com.rmp.lib.utils.korm.query.BatchQuery
 import com.rmp.lib.utils.korm.query.QueryDto
 import com.rmp.lib.utils.redis.PubSubService
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.RedisSubscriber
 import com.rmp.lib.utils.redis.subscribe
+import com.rmp.lib.utils.security.bcrypt.CryptoUtil
 import com.rmp.tm.conf.ServiceConf
 import com.rmp.tm.korm.TransactionManager
 import kotlinx.coroutines.*
 import org.kodein.di.DI
 import org.kodein.di.instance
 
-fun main(args: Array<String>) {
+fun main() {
     TransactionManager.init {
         jdbcUrl = ServiceConf.dbConf.jdbcUrl
         driverClassName = ServiceConf.dbConf.driverClassName
@@ -29,10 +36,24 @@ fun main(args: Array<String>) {
         password = ServiceConf.dbConf.password
     }
 
-    TableRegister.register(DbType.PGSQL, UserModel)
-    TableRegister.register(DbType.PGSQL, CacheModel, CacheToDishModel, DishModel, DishTypeModel)
+    TableRegister.register(DbType.PGSQL, UserModel, UserLoginModel)
+    TableRegister.register(DbType.PGSQL, DishTypeModel, DishModel)
+    TableRegister.register(DbType.PGSQL, CacheModel, CacheToDishModel)
+    TableRegister.register(DbType.PGSQL, DietDishLogModel, DietWaterLogModel)
+    TableRegister.register(DbType.PGSQL, UserMenuModel, UserMenuItem)
 
-    TransactionManager.initTables(forceRecreate = true)
+    TransactionManager.initTables(
+        forceRecreate = true,
+        excludedFromRecreation = mutableSetOf(DishModel, DishTypeModel)
+    ) {
+        this add UserModel.insert {
+            it[name] = "User"
+            it[login] = "login"
+            it[password] = CryptoUtil.hash("password")
+            it[waterTarget] = 1.2
+            it[caloriesTarget] = 4.1
+        }.named("insert")
+    }
 
     val kodein = DI {
         bindSingleton { PubSubService(AppConf.redis.db, it) }
@@ -86,7 +107,7 @@ fun main(args: Array<String>) {
                         val sender = event.from
 
                         pubSubService.publish(
-                            event.switchData(queryResult, queryResult.tid ?: event.tid),
+                            event.mutateData(queryResult, queryResult.tid ?: event.tid),
                             sender
                         )
                     }

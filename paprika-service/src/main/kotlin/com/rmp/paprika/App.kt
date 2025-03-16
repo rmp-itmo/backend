@@ -13,6 +13,9 @@ import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.RedisSubscriber
 import com.rmp.lib.utils.redis.fsm.FsmRouter
 import com.rmp.lib.utils.redis.subscribe
+import com.rmp.paprika.actions.cache.UpdateCacheFsm
+import com.rmp.paprika.actions.meal.GenerateMealFsm
+import com.rmp.paprika.actions.menu.GenerateMenuFsm
 import com.rmp.paprika.services.CacheService
 import com.rmp.paprika.services.DishService
 import com.rmp.paprika.services.PaprikaService
@@ -22,16 +25,18 @@ import kotlinx.coroutines.runBlocking
 import org.kodein.di.DI
 import org.kodein.di.instance
 
-fun main(args: Array<String>) {
+fun main() {
     val kodein = DI {
-        bindSingleton { PubSubService(AppConf.redis.auth, it) }
+        bindSingleton { PubSubService(AppConf.redis.paprika, it) }
         bindSingleton { CacheService(it) }
         bindSingleton { DishService(it) }
         bindSingleton { PaprikaService(it) }
 
         bindSingleton {
-            FsmRouter.routing(it) {
-
+            FsmRouter.routing(AppConf.redis.paprika, it) {
+                fsm(GenerateMealFsm(it))
+                fsm(GenerateMenuFsm(it))
+                fsm(UpdateCacheFsm(it))
             }
         }
     }
@@ -52,7 +57,7 @@ fun main(args: Array<String>) {
                         router.process(redisEvent)
                     }
                 }
-            }, true, AppConf.redis.auth)
+            }, true, AppConf.redis.paprika)
         }
     }
 }

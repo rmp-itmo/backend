@@ -1,8 +1,11 @@
 package com.rmp.api
 
 import com.rmp.api.conf.ServerConf
-import com.rmp.api.modules.auth.controller.AuthController
-import com.rmp.api.modules.auth.service.ApiService
+import com.rmp.api.modules.diet.UserController
+import com.rmp.api.modules.auth.AuthController
+import com.rmp.api.modules.diet.ServiceController
+import com.rmp.api.modules.paprika.PaprikaController
+import com.rmp.api.utils.api.ApiService
 import com.rmp.api.plugins.*
 import com.rmp.api.utils.kodein.bindSingleton
 import com.rmp.api.utils.kodein.regKodein
@@ -24,6 +27,9 @@ val kodein = DI {
 
     // ----- Controllers ------
     bindSingleton { AuthController(it) }
+    bindSingleton { UserController(it) }
+    bindSingleton { PaprikaController(it) }
+    bindSingleton { ServiceController(it) }
 }
 
 fun main() {

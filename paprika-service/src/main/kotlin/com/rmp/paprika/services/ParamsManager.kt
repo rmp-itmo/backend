@@ -2,12 +2,12 @@ package com.rmp.paprika.services
 
 import com.rmp.lib.exceptions.CantSolveException
 import com.rmp.paprika.dto.PaprikaInputDto
-import com.rmp.paprika.dto.meal.ParametersDto
+import com.rmp.paprika.dto.mpsolver.ParametersDto
 
 class ParamsManager internal constructor() {
     lateinit var params: ParametersDto
     private var calories: Double = 0.0
-    private var eatingsCoef: Double = 1.0
+    private var mealsCoef: Double = 1.0
     var calculatedFromParams: Boolean = false
     /*
         That param is used to auto calculate and validate params
@@ -23,8 +23,9 @@ class ParamsManager internal constructor() {
     }
 
     fun withSize(coef: Double) {
-        eatingsCoef = coef
+        mealsCoef = coef
     }
+
     fun fromPaprikaInput(paprikaInputDto: PaprikaInputDto, delta: Double = 1.0) {
         return if (paprikaInputDto.params != null) {
             fromParams(paprikaInputDto.params, delta)
@@ -34,7 +35,8 @@ class ParamsManager internal constructor() {
         else
             throw CantSolveException("You must provide either macronutrients params or calories")
     }
-    fun fromCalories(calories: Double?, delta: Double = 1.0) {
+
+    private fun fromCalories(calories: Double?, delta: Double = 1.0) {
         if (calories == null)
             return
         this.calories = calories
@@ -42,7 +44,7 @@ class ParamsManager internal constructor() {
         val fat = createMinMaxValue(9, delta)
         val carbohydrates = createMinMaxValue(4, delta)
         this.params = ParametersDto(
-            calories = this.calories * eatingsCoef,
+            calories = this.calories * mealsCoef,
 
             minProtein = protein.first,
             maxProtein = protein.second,
@@ -54,24 +56,23 @@ class ParamsManager internal constructor() {
             maxCarbohydrates = carbohydrates.second,
         )
     }
-    fun fromParams(params: ParametersDto?, delta: Double = 0.0) {
+    private fun fromParams(params: ParametersDto?, delta: Double = 0.0) {
         calculatedFromParams = true
         if (params == null)
             return
         this.validateParams(params)
-        println("Get from params: $params")
         this.params = ParametersDto(
-            calories = params.calories * eatingsCoef,
+            calories = params.calories * mealsCoef,
 
-            minProtein = params.minProtein * eatingsCoef * (1.0 - delta),
-            maxProtein = params.maxProtein * eatingsCoef * (1.0 + delta),
+            minProtein = params.minProtein * mealsCoef * (1.0 - delta),
+            maxProtein = params.maxProtein * mealsCoef * (1.0 + delta),
 
 
-            minFat = params.minFat * eatingsCoef * (1.0 - delta),
-            maxFat = params.maxFat * eatingsCoef * (1.0 + delta),
+            minFat = params.minFat * mealsCoef * (1.0 - delta),
+            maxFat = params.maxFat * mealsCoef * (1.0 + delta),
 
-            minCarbohydrates = params.minCarbohydrates * eatingsCoef * (1.0 - delta),
-            maxCarbohydrates = params.maxCarbohydrates * eatingsCoef * (1.0 + delta),
+            minCarbohydrates = params.minCarbohydrates * mealsCoef * (1.0 - delta),
+            maxCarbohydrates = params.maxCarbohydrates * mealsCoef * (1.0 + delta),
         )
     }
 
@@ -93,39 +94,39 @@ class ParamsManager internal constructor() {
     }
 
     private fun createMinMaxValue(divider: Int = 4, delta: Double = 1.0): Pair<Double, Double> {
-        val value = (calories / 3) / divider * eatingsCoef
+        val value = (calories / 3) / divider * mealsCoef
         return Pair(
             value * (1 - delta),
             value * (1 + delta)
         )
     }
 
-    operator fun invoke(paprikaInputDto: PaprikaInputDto, eatingsCoef: Double = 1.0): ParametersDto {
+    operator fun invoke(paprikaInputDto: PaprikaInputDto, mealCoef: Double = 1.0): ParametersDto {
         return if (paprikaInputDto.calories != null) {
             ParametersDto(
-                calories = paprikaInputDto.calories * eatingsCoef,
+                calories = paprikaInputDto.calories * mealCoef,
 
                 minProtein = 0.0,
-                maxProtein = paprikaInputDto.calories / 4 * eatingsCoef,
+                maxProtein = paprikaInputDto.calories / 4 * mealCoef,
 
                 minFat = 0.0,
-                maxFat = paprikaInputDto.calories / 9 * eatingsCoef,
+                maxFat = paprikaInputDto.calories / 9 * mealCoef,
 
                 minCarbohydrates = 0.0,
-                maxCarbohydrates = paprikaInputDto.calories / 4 * eatingsCoef,
+                maxCarbohydrates = paprikaInputDto.calories / 4 * mealCoef,
             )
         } else
             ParametersDto(
-                calories = paprikaInputDto.params!!.calories * eatingsCoef,
+                calories = paprikaInputDto.params!!.calories * mealCoef,
 
-                minProtein = paprikaInputDto.params.minProtein * eatingsCoef,
-                maxProtein = paprikaInputDto.params.maxProtein * eatingsCoef,
+                minProtein = paprikaInputDto.params.minProtein * mealCoef,
+                maxProtein = paprikaInputDto.params.maxProtein * mealCoef,
 
-                minFat = paprikaInputDto.params.minFat * eatingsCoef,
-                maxFat = paprikaInputDto.params.maxFat * eatingsCoef,
+                minFat = paprikaInputDto.params.minFat * mealCoef,
+                maxFat = paprikaInputDto.params.maxFat * mealCoef,
 
-                minCarbohydrates = paprikaInputDto.params.minCarbohydrates * eatingsCoef,
-                maxCarbohydrates = paprikaInputDto.params.maxCarbohydrates * eatingsCoef,
+                minCarbohydrates = paprikaInputDto.params.minCarbohydrates * mealCoef,
+                maxCarbohydrates = paprikaInputDto.params.maxCarbohydrates * mealCoef,
             )
     }
 }

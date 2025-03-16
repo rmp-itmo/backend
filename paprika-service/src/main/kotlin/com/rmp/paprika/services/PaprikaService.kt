@@ -1,10 +1,20 @@
 package com.rmp.paprika.services
 
+import com.rmp.lib.exceptions.BadRequestException
 import com.rmp.lib.exceptions.CantSolveException
-import com.rmp.lib.shared.modules.auth.dto.AuthorizedUser
+import com.rmp.lib.exceptions.InternalServerException
+import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.modules.dish.DishModel
+import com.rmp.lib.shared.modules.paprika.CacheModel
+import com.rmp.lib.shared.modules.paprika.CacheToDishModel
 import com.rmp.lib.utils.korm.Row
+import com.rmp.lib.utils.redis.RedisEvent
+import com.rmp.lib.utils.redis.RedisEventState
 import com.rmp.lib.utils.redis.fsm.FsmService
+import com.rmp.paprika.actions.cache.UpdateCacheState
+import com.rmp.paprika.actions.meal.GenerateMealState
+import com.rmp.paprika.actions.menu.GenerateMenuState
+import com.rmp.paprika.dto.GenerateMenuStateDto
 import com.rmp.paprika.dto.PaprikaInputDto
 import com.rmp.paprika.dto.PaprikaOutputDto
 import com.rmp.paprika.dto.dish.DishDto
@@ -13,7 +23,7 @@ import com.rmp.paprika.dto.meal.MealOutputDto
 import org.kodein.di.DI
 import org.kodein.di.instance
 
-class PaprikaService(di: DI) : FsmService(di) {
+class PaprikaService(di: DI) : FsmService(di, AppConf.redis.paprika) {
     private val dishService: DishService by instance()
     private val cacheService: CacheService by instance()
     /*
@@ -21,7 +31,22 @@ class PaprikaService(di: DI) : FsmService(di) {
         0.25 means that the delta of generated (or provided) params must be in range of [ calories * 0.75, calories * 1.25 ]
         In the other words it means amount of acceptable calculation error
      */
-    private val solverDelta = 0.25
+    private val solverDelta = 0.15
+
+
+    private fun List<Row>.toDto(): List<DishDto> = map {
+        DishDto(
+            it[DishModel.id],
+            it[DishModel.name],
+            it[DishModel.imageUrl],
+            it[DishModel.calories],
+            it[DishModel.protein],
+            it[DishModel.fat],
+            it[DishModel.carbohydrates],
+            it[DishModel.cookTime],
+            it[DishModel.type]
+        )
+    }
 
     private fun List<Row>.countMacronutrients(): MacronutrientsDto =
         map {
@@ -42,8 +67,6 @@ class PaprikaService(di: DI) : FsmService(di) {
                 }
         }
 
-    fun List<Row>.toDto(): List<DishDto> = listOf()
-
     /*
 
         Solve eating method works recursively, due to optimization we need to separate big amounts of Dishes into small batches
@@ -58,41 +81,196 @@ class PaprikaService(di: DI) : FsmService(di) {
         When the offset 0 besides start solving we also must check cache and if in the database we have already had the eating that user need,
         and it is we simply return it.
      */
-    private fun solveEating(
-        paprikaInputDto: PaprikaInputDto,
-        index: Int,
-        maxima: Int = 0,
-        offset: Long = 1
-    ): Pair<MealOutputDto, Int?> {
-        println("Algorithm input: $paprikaInputDto")
-        var dishesCount = 0
-        if (offset.toInt() == 1) {
-            val cache = cacheService.findEating(paprikaInputDto, index)
-//            if (cache != null)
-//                return cache
 
-            println("Cache returns nothing :( start solving")
-            // TODO: Move to next state
-            //dishesCount = dishService.getDishesIdByEatingParams(paprikaInputDto.eatings[index], paprikaInputDto).count()
-
-            //println(dishesCount)
+    // Menu generation
+    private fun buildPaprikaOutput(paprikaInputDto: PaprikaInputDto, meals: List<MealOutputDto>): PaprikaOutputDto {
+        val params = meals.mapIndexed { index, item ->
+            item.params
+        }.reduce {
+                a, b -> run {
+            MacronutrientsDto(
+                calories = a.calories + b.calories,
+                protein = a.protein + b.protein,
+                fat = a.fat + b.fat,
+                carbohydrates = a.carbohydrates + b.carbohydrates,
+            )
+        }
         }
 
-        val dishes = dishService.getDishesByEatingParams(paprikaInputDto.eatings[index], paprikaInputDto, offset)
-        val eatingOptions = paprikaInputDto.eatings[index]
+        return PaprikaOutputDto(
+            diet = paprikaInputDto.diet,
+            meals = meals,
+            params = params,
+            idealParams = ParamsManager.process {
+                fromPaprikaInput(paprikaInputDto, solverDelta)
+            }.params
+        )
+    }
+
+    private suspend fun updateCache(redisEvent: RedisEvent, state: GenerateMenuStateDto) {
+        val updateCache = redisEvent.copyId("update-cache")
+        updateCache.switchOn(state, AppConf.redis.paprika, RedisEventState(UpdateCacheState.SAVE_CACHE))
+    }
+
+    suspend fun init(redisEvent: RedisEvent) {
+        val paprikaInputDto = redisEvent.parseData<PaprikaInputDto>() ?: throw BadRequestException("Incorrect input provided")
+
+        redisEvent.switch(
+            AppConf.redis.paprika,
+            redisEvent.mutate(GenerateMenuState.GENERATE_MEAL, GenerateMenuStateDto(paprikaInputDto)))
+    }
+
+    suspend fun generateMeal(redisEvent: RedisEvent) {
+        val state = redisEvent.parseState<GenerateMenuStateDto>() ?: throw InternalServerException("Event state corrupted")
+
+        if (state.index > state.paprikaInputDto.meals.lastIndex)
+            redisEvent.switch(AppConf.redis.paprika, redisEvent.mutate(GenerateMenuState.MEAL_GENERATED))
+        else {
+            val generateMeal = redisEvent.copyId("generate-meal")
+            generateMeal.switch(
+                AppConf.redis.paprika,
+                generateMeal.mutate(GenerateMealState.INIT, state.clearMealState())
+            )
+        }
+    }
+
+    suspend fun mealGenerated(redisEvent: RedisEvent) {
+        val state = redisEvent.parseState<GenerateMenuStateDto>() ?: throw InternalServerException("Event state corrupted")
+
+        if (state.index >= state.paprikaInputDto.meals.lastIndex) {
+            if (state.generated.size < state.paprikaInputDto.meals.size)
+                redisEvent.switchOnApi(
+                    CantSolveException()
+                )
+            else {
+                updateCache(redisEvent, state)
+                redisEvent.switchOnApi(
+                    buildPaprikaOutput(state.paprikaInputDto, state.generated)
+                )
+            }
+            return
+        } else {
+            redisEvent.switch(
+                AppConf.redis.paprika,
+                redisEvent.mutate(GenerateMenuState.GENERATE_MEAL, state.nextMeal())
+            )
+        }
+
+
+    }
+
+
+
+    // Meal generation
+    private suspend fun switchMealSolvingToDishFetch(redisEvent: RedisEvent, state: GenerateMenuStateDto) {
+        val dishCount = newAutoCommitTransaction(redisEvent) {
+            this add dishService
+                .getDishesIdByEatingParams(state.currentMealOptions, state.paprikaInputDto)
+                .count("dishes-count")
+        }["dishes-count"]?.firstOrNull() ?: throw InternalServerException("Select failed")
+
+        redisEvent.switch(
+            AppConf.redis.paprika,
+            redisEvent.mutate(
+                GenerateMealState.SEARCH_DISHES,
+                state.setDishCount(dishCount[DishModel.entityCount])
+            )
+        )
+    }
+
+    private suspend fun mealSolutionFound(redisEvent: RedisEvent, paramsManager: ParamsManager, state: GenerateMenuStateDto, dishes: List<Row>, cacheId: Long? = null) {
+        val mealOutput = MealOutputDto(
+            state.currentMealOptions.name,
+            idealParams = MacronutrientsDto(
+                calories = paramsManager.params.calories,
+                protein = paramsManager.params.maxProtein,
+                fat = paramsManager.params.maxFat,
+                carbohydrates = paramsManager.params.maxCarbohydrates,
+            ),
+            dishes = dishes.toDto(),
+            params = dishes.countMacronutrients(),
+            cacheId = cacheId
+        )
+
+        val mealSolved = redisEvent.copyId("generate-menu")
+
+        mealSolved.switch(
+            AppConf.redis.paprika,
+            mealSolved.mutate(GenerateMenuState.MEAL_GENERATED, state.appendMeal(mealOutput))
+        )
+    }
+
+    suspend fun initMealSolution(redisEvent: RedisEvent) {
+        val state = redisEvent.parseState<GenerateMenuStateDto>() ?: throw InternalServerException("Event state corrupted")
+
+        val cache = newAutoCommitTransaction(redisEvent) {
+            this add cacheService
+                        .findIncompatible(state.paprikaInputDto.excludeDishes)
+                        .named("excluded-cache-entries")
+
+            this add cacheService
+                        .findMeal(state.paprikaInputDto, state.index)
+                        .named("cache-entries")
+        }
+
+
+        val cacheEntries = cache["cache-entries"]
+        val excludedEntries = cache["excluded-cache-entries"]?.map {
+            it[CacheToDishModel.mealCache]
+        } ?: listOf()
+
+
+        if (cacheEntries.isNullOrEmpty()) {
+            switchMealSolvingToDishFetch(redisEvent, state)
+            return
+        }
+
+        val acceptableEntry = cacheEntries.firstOrNull {
+            it[CacheModel.id] !in excludedEntries
+        } ?: return switchMealSolvingToDishFetch(redisEvent, state)
+
+        val mealDishes = newAutoCommitTransaction(redisEvent) {
+            this add cacheService
+                .getMealDishes(acceptableEntry[CacheModel.id])
+                .named("meal-dishes")
+        }["meal-dishes"] ?: listOf()
+        val mealOptions = state.currentMealOptions
+
+
+        val processed = ParamsManager.process {
+            withSize(mealOptions.size)
+            fromPaprikaInput(state.paprikaInputDto, solverDelta)
+        }
+
+        mealSolutionFound(redisEvent, processed, state, mealDishes, state.cacheId)
+    }
+
+    suspend fun searchDishes(redisEvent: RedisEvent) {
+        val state = redisEvent.parseState<GenerateMenuStateDto>() ?: throw InternalServerException("Event state corrupted")
+
+        if (state.dishesCount == 0L) {
+            redisEvent.switchOnApi(CantSolveException())
+            return
+        }
+
+        solve(redisEvent, state)
+    }
+
+    private suspend fun solve(redisEvent: RedisEvent, curState: GenerateMenuStateDto) {
+        val dishes = newAutoCommitTransaction(redisEvent) {
+            this add dishService
+                .getDishesByMealParams(curState.currentMealOptions, curState.paprikaInputDto, curState.offset)
+                .named("dishes")
+        }["dishes"] ?: listOf()
+
         val processedData = ParamsManager.process {
-            withSize(eatingOptions.size)
-            fromPaprikaInput(paprikaInputDto, solverDelta)
+            withSize(curState.currentMealOptions.size)
+            fromPaprikaInput(curState.paprikaInputDto, solverDelta)
         }
-        println("Processed Data ${processedData.calculatedFromParams}")
+
         val params = processedData.params
-
-        if (dishesCount == 0 && maxima == 0)
-            throw CantSolveException()
-
-        //Here we are init the solver
         val solver = MPSolverService.initSolver {
-            answersCount(paprikaInputDto.eatings[index].dishCount ?: 0)
+            answersCount(curState.currentMealOptions.dishCount ?: 0)
 
             setConstraint {
                 name = "Calories"
@@ -121,101 +299,25 @@ class PaprikaService(di: DI) : FsmService(di) {
                     modelKey = DishModel.carbohydrates
                 }
             }
-//          Here was the cellulose constraint
-//            setConstraint {
-//                name = "Cellulose"
-//                bottom = params.minCellulose
-//                top = params.maxCellulose
-//                modelKey = DishModel.cellulose
-//            }
-
-
-
-            //TODO: Do it on the next fsm state
 
             // Provide the data that will be used for calculating
-//            onData(dishes)
+            onData(dishes)
             // Provide the objective, algorithm will be trying to optimize the calculation based of that variable
-//            withObjective(DishModel.timeToCook)
+            withObjective(DishModel.cookTime)
             // We set direction to minimize so in that case algorithm will be trying to found the dish with less time to cook
-//            onDirection(MPSolverService.SolveDirection.MINIMIZE)
+            onDirection(MPSolverService.SolveDirection.MINIMIZE)
         }
-
-        //TODO: Move to next state
-
         val result = solver.solve()
-        if (result.isEmpty()) {
-            if ((maxima != 0 || dishesCount == 0) && maxima < offset * 750)
-                throw CantSolveException()
-            else {
-                val nextMaxima = if (maxima == 0)
-                    dishesCount
-                else
-                    maxima
 
-                return solveEating(paprikaInputDto, index, nextMaxima, offset + 1)
-            }
+        if (result.isNotEmpty()) {
+            mealSolutionFound(redisEvent, processedData, curState, result)
+            return
         }
 
-        val micronutrients = result.countMacronutrients()
-
-        return Pair(MealOutputDto(
-            name = eatingOptions.name,
-            idealParams = MacronutrientsDto(
-                calories = params.calories,
-                protein = params.maxProtein,
-                fat = params.maxFat,
-                carbohydrates = params.maxCarbohydrates,
-            ),
-            dishes = result.toDto(),
-            params = micronutrients
-        ), null)
-    }
-
-    /*
-
-        That method is used to solve the whole daily diet,
-        it simply calls the "solve eating" method for each eating in the requested diet and then processed it.
-
-        After the eating solving we save it in cache (in the database) for future solvings
-     */
-    fun calculateMenu(authorizedUser: AuthorizedUser, paprikaInputDto: PaprikaInputDto): PaprikaOutputDto {
-        val eatings = List(paprikaInputDto.eatings.size) {
-            index ->  run {
-                val eatingOutputDto = solveEating(paprikaInputDto, index)
-//                eatingOutputDto.first.dishes = eatingOutputDto.first.dishes.appendIngredients()
-
-                val cacheId = if (eatingOutputDto.second == null)
-                    cacheService.saveEating(eatingOutputDto.first, paprikaInputDto, index)
-                else
-                    eatingOutputDto.second
-
-                cacheService.saveUserDiet(authorizedUser.id, paprikaInputDto.eatings[index].name, cacheId!!)
-
-                eatingOutputDto.first
-            }
+        if (curState.dishesCount < curState.offset * 750) {
+            redisEvent.switchOnApi(CantSolveException())
+        } else {
+            solve(redisEvent, curState.nextDishBatch())
         }
-
-        val params = eatings.mapIndexed { index, item ->
-            item.params
-        }.reduce {
-            a, b -> run {
-                MacronutrientsDto(
-                    calories = a.calories + b.calories,
-                    protein = a.protein + b.protein,
-                    fat = a.fat + b.fat,
-                    carbohydrates = a.carbohydrates + b.carbohydrates,
-                )
-            }
-        }
-
-        return PaprikaOutputDto(
-            diet = paprikaInputDto.diet,
-            eatings = eatings,
-            params = params,
-            idealParams = ParamsManager.process {
-                fromPaprikaInput(paprikaInputDto, solverDelta)
-            }.params
-        )
     }
 }

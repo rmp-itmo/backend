@@ -31,6 +31,7 @@ abstract class QueryBuilder(val table: Table) {
     protected fun loadExpressionFilter() {
         if (filterExpression != null) {
             val (expression, params) = filterExpression!!.buildExpression()
+            if (expression.isBlank()) return
             append(" WHERE ")
             append(expression, params)
         }
