@@ -18,6 +18,9 @@ class DailyTargetCheckFsm(di: DI): Fsm("user-daily-target-check", di) {
         on(DailyTargetCheckEventState.CHECK_WATER) {
             dietTargetCheckService.checkWater(this)
         }
+        on(DailyTargetCheckEventState.UPDATE_STREAKS) {
+            dietTargetCheckService.updateStreaks(this)
+        }
     }
 }
 

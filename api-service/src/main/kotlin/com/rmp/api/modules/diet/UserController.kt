@@ -31,7 +31,7 @@ class UserController(override val di: DI) : KodeinController() {
                 }
                 route("target") {
                     route("check") {
-                        get {
+                        post {
                             call.process("user-daily-target-check", AppConf.redis.diet)
                         }
                     }

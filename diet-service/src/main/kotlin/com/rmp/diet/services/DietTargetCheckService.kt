@@ -99,6 +99,36 @@ class DietTargetCheckService(di: DI): FsmService(di) {
 
             data.result.water = waterTarget < sum
         }
+        redisEvent.switchOn(data, AppConf.redis.diet, redisEvent.mutate(DailyTargetCheckEventState.UPDATE_STREAKS))
+    }
+
+    suspend fun updateStreaks(redisEvent: RedisEvent) {
+        val data = redisEvent.parseData<TargetCheckSupportDto>() ?: throw InternalServerException("No support data")
+        val user = redisEvent.authorizedUser ?: throw Exception("Bad user")
+
+        val currentStreaks = newAutoCommitTransaction(redisEvent) {
+            this add UserModel
+                .select(UserModel.waterStreak, UserModel.caloriesStreak)
+                .where { UserModel.id eq user.id }
+        }[UserModel]?.firstOrNull() ?: throw InternalServerException("Streaks select error")
+
+        newAutoCommitTransaction(redisEvent) {
+            this add UserModel
+                .update(UserModel.id eq user.id) {
+                    if (data.result.water == true) {
+                        UserModel.waterStreak.set(currentStreaks[UserModel.waterStreak] + 1)
+                    } else {
+                        UserModel.waterStreak.set(UserModel.waterStreak.defaultValue ?: 0)
+                    }
+
+                    if (data.result.dishes == true) {
+                        UserModel.caloriesStreak.set(currentStreaks[UserModel.caloriesStreak] + 1)
+                    } else {
+                        UserModel.caloriesStreak.set(UserModel.caloriesStreak.defaultValue ?: 0)
+                    }
+                }.named("update-streaks")
+        }["update-streaks"]
+
         redisEvent.switchOnApi(data.result)
     }
 }
