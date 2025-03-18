@@ -14,7 +14,7 @@ object UserModel: IdTable("user_model") {
     val waterStreak = int("water_streak").default(0)
     val caloriesStreak = int("calories_streak").default(0)
 
-    val height = float("high")
+    val height = float("height")
     val weight = float("weight")
     val activityLevelType = reference("activity_level_type", UserActivityLevelTypeModel)
     val goalType = reference("goal_type", UserGoalTypeModel)
