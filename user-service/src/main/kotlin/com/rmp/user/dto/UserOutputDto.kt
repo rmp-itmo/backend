@@ -8,7 +8,7 @@ data class UserOutputDto(
     val id: Long,
     val name: String,
     val email: String,
-    val high: Float,
+    val height: Float,
     val weight: Float,
     val activityType: String,
     val goalType: String,

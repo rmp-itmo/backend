@@ -8,7 +8,7 @@ data class UserCreateInputDto(
     val name: String,
     val email: String,
     val password: String,
-    val high: Float,
+    val height: Float,
     val weight: Float,
     val activityType: Long,
     val goalType: Long,

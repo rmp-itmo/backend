@@ -54,7 +54,7 @@ class UserService(di: DI): FsmService(di) {
                     it[password] = CryptoUtil.hash(data.password)
                     it[waterTarget] = targets.second
                     it[caloriesTarget] = targets.first
-                    it[high] = data.high
+                    it[height] = data.height
                     it[weight] = data.weight
                     it[activityLevelType] = data.activityType
                     it[goalType] = data.goalType
@@ -74,9 +74,9 @@ class UserService(di: DI): FsmService(di) {
     ): Pair<Double, Double>{
         // Формула Миффлина-Сан Жеора для BMR
         val bmr = if (user.isMale) {
-            10 * user.weight + 6.25 * user.high - 5 * user.age + 5
+            10 * user.weight + 6.25 * user.height - 5 * user.age + 5
         } else {
-            10 * user.weight + 6.25 * user.high - 5 * user.age - 161
+            10 * user.weight + 6.25 * user.height - 5 * user.age - 161
         }
 
         val calories = bmr * caloriesCoefficient * goalCoefficient
@@ -108,7 +108,7 @@ class UserService(di: DI): FsmService(di) {
                     UserModel.name,
                     UserModel.email,
                     UserModel.age,
-                    UserModel.high,
+                    UserModel.height,
                     UserModel.weight,
                     UserModel.isMale,
                     UserModel.caloriesStreak,
@@ -127,7 +127,7 @@ class UserService(di: DI): FsmService(di) {
                 select[UserModel.id],
                 select[UserModel.name],
                 select[UserModel.email],
-                select[UserModel.high],
+                select[UserModel.height],
                 select[UserModel.weight],
                 select[UserActivityLevelTypeModel.name],
                 select[UserGoalTypeModel.name],
