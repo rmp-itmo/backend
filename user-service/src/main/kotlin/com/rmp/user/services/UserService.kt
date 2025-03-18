@@ -3,7 +3,7 @@ package com.rmp.user.services
 import com.rmp.lib.exceptions.BadRequestException
 import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.exceptions.InternalServerException
-import com.rmp.lib.shared.modules.user.UserActivityLevelTypeModel
+import com.rmp.lib.shared.modules.user.UserActivityLevelModel
 import com.rmp.lib.shared.modules.user.UserGoalTypeModel
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.korm.column.eq
@@ -24,26 +24,26 @@ class UserService(di: DI): FsmService(di) {
         checkEmail(redisEvent, data.email)
 
         val select = newAutoCommitTransaction(redisEvent) {
-            this add UserActivityLevelTypeModel
-                .select(UserActivityLevelTypeModel.caloriesCoefficient, UserActivityLevelTypeModel.waterCoefficient)
-                .where { UserActivityLevelTypeModel.id eq  data.activityType}
+            this add UserActivityLevelModel
+                .select(UserActivityLevelModel.caloriesCoefficient, UserActivityLevelModel.waterCoefficient)
+                .where { UserActivityLevelModel.id eq  data.activityType}
 
             this add UserGoalTypeModel
                 .select(UserGoalTypeModel.coefficient)
                 .where { UserGoalTypeModel.id eq  data.goalType}
         }
 
-        val activityCoefficients = select[UserActivityLevelTypeModel]?.firstOrNull()
+        val activityCoefficients = select[UserActivityLevelModel]?.firstOrNull()
             ?: throw BadRequestException("Invalid activity level type provided")
 
         val goalCoefficient = select[UserGoalTypeModel]?.firstOrNull()
             ?: throw BadRequestException("Invalid goal type provided")
 
-        val targets = calculateTargets(
+        val (calories, water) = calculateTargets(
             data,
             goalCoefficient[UserGoalTypeModel.coefficient],
-            activityCoefficients[UserActivityLevelTypeModel.caloriesCoefficient],
-            activityCoefficients[UserActivityLevelTypeModel.waterCoefficient]
+            activityCoefficients[UserActivityLevelModel.caloriesCoefficient],
+            activityCoefficients[UserActivityLevelModel.waterCoefficient]
         )
 
         val user = newAutoCommitTransaction(redisEvent) {
@@ -52,11 +52,11 @@ class UserService(di: DI): FsmService(di) {
                     it[name] = data.name
                     it[email] = data.email
                     it[password] = CryptoUtil.hash(data.password)
-                    it[waterTarget] = targets.second
-                    it[caloriesTarget] = targets.first
+                    it[waterTarget] = water
+                    it[caloriesTarget] = calories
                     it[height] = data.height
                     it[weight] = data.weight
-                    it[activityLevelType] = data.activityType
+                    it[activityLevel] = data.activityType
                     it[goalType] = data.goalType
                     it[isMale] = data.isMale
                     it[age] = data.age
@@ -80,9 +80,9 @@ class UserService(di: DI): FsmService(di) {
         }
 
         val calories = bmr * caloriesCoefficient * goalCoefficient
-        val water = user.weight * waterCoefficient
+        val water = user.weight * waterCoefficient.toDouble()
 
-        return Pair(calories, water.toDouble())
+        return calories to water
     }
 
     private suspend fun checkEmail(redisEvent: RedisEvent, email: String) {
@@ -115,10 +115,10 @@ class UserService(di: DI): FsmService(di) {
                     UserModel.waterStreak,
                     UserModel.caloriesTarget,
                     UserModel.waterTarget,
-                    UserActivityLevelTypeModel.name,
+                    UserActivityLevelModel.name,
                     UserGoalTypeModel.name
                 ).where { UserModel.id eq user.id }
-                .join(UserActivityLevelTypeModel, JoinType.INNER, UserActivityLevelTypeModel.id eq UserModel.activityLevelType)
+                .join(UserActivityLevelModel, JoinType.INNER, UserActivityLevelModel.id eq UserModel.activityLevel)
                 .join(UserGoalTypeModel, JoinType.INNER, UserGoalTypeModel.id eq UserModel.goalType)
         }[UserModel]?.firstOrNull() ?: throw BadRequestException("User does not exist")
 
@@ -129,7 +129,7 @@ class UserService(di: DI): FsmService(di) {
                 select[UserModel.email],
                 select[UserModel.height],
                 select[UserModel.weight],
-                select[UserActivityLevelTypeModel.name],
+                select[UserActivityLevelModel.name],
                 select[UserGoalTypeModel.name],
                 select[UserModel.isMale],
                 select[UserModel.age],

@@ -16,7 +16,7 @@ object UserModel: IdTable("user_model") {
 
     val height = float("height")
     val weight = float("weight")
-    val activityLevelType = reference("activity_level_type", UserActivityLevelTypeModel)
+    val activityLevel = reference("activity_level", UserActivityLevelModel)
     val goalType = reference("goal_type", UserGoalTypeModel)
     val isMale = bool("is_male")
     val age = int("age")

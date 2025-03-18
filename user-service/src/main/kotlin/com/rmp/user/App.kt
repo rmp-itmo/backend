@@ -1,7 +1,7 @@
 package com.rmp.user
 
 import com.rmp.lib.shared.conf.AppConf
-import com.rmp.lib.shared.modules.user.UserActivityLevelTypeModel
+import com.rmp.lib.shared.modules.user.UserActivityLevelModel
 import com.rmp.lib.shared.modules.user.UserGoalTypeModel
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.kodein.bindSingleton
@@ -36,7 +36,7 @@ fun main() {
     }
 
     // DB tables
-    TableRegister.register(DbType.PGSQL, UserModel, UserGoalTypeModel, UserActivityLevelTypeModel)
+    TableRegister.register(DbType.PGSQL, UserModel, UserGoalTypeModel, UserActivityLevelModel)
 
     val router by kodein.instance<FsmRouter>()
 

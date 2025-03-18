@@ -9,7 +9,7 @@ import com.rmp.lib.shared.modules.dish.UserMenuItem
 import com.rmp.lib.shared.modules.dish.UserMenuModel
 import com.rmp.lib.shared.modules.paprika.CacheModel
 import com.rmp.lib.shared.modules.paprika.CacheToDishModel
-import com.rmp.lib.shared.modules.user.UserActivityLevelTypeModel
+import com.rmp.lib.shared.modules.user.UserActivityLevelModel
 import com.rmp.lib.shared.modules.user.UserGoalTypeModel
 import com.rmp.lib.shared.modules.user.UserLoginModel
 import com.rmp.lib.shared.modules.user.UserModel
@@ -38,7 +38,7 @@ fun main() {
         password = ServiceConf.dbConf.password
     }
 
-    TableRegister.register(DbType.PGSQL, UserGoalTypeModel, UserActivityLevelTypeModel)
+    TableRegister.register(DbType.PGSQL, UserGoalTypeModel, UserActivityLevelModel)
     TableRegister.register(DbType.PGSQL, UserModel, UserLoginModel)
     TableRegister.register(DbType.PGSQL, DishTypeModel, DishModel)
     TableRegister.register(DbType.PGSQL, CacheModel, CacheToDishModel)
@@ -67,19 +67,19 @@ fun main() {
         }.named("insert-gain-goal-type")
 
         // User activity
-        this add UserActivityLevelTypeModel.insert {
+        this add UserActivityLevelModel.insert {
             it[name] = "Low"
             it[caloriesCoefficient] = 1.2F
             it[waterCoefficient] = 0.03F
         }.named("insert-low-activity-type")
 
-        this add UserActivityLevelTypeModel.insert {
+        this add UserActivityLevelModel.insert {
             it[name] = "Medium"
             it[caloriesCoefficient] = 1.55F
             it[waterCoefficient] = 0.04F
         }.named("insert-medium-activity-type")
 
-        this add UserActivityLevelTypeModel.insert {
+        this add UserActivityLevelModel.insert {
             it[name] = "High"
             it[caloriesCoefficient] = 1.75F
             it[waterCoefficient] = 0.05F
@@ -92,9 +92,9 @@ fun main() {
             it[password] = CryptoUtil.hash("password")
             it[waterTarget] = 1.2
             it[caloriesTarget] = 4.1
-            it[high] = 185.0F
+            it[height] = 185.0F
             it[weight] = 73.0F
-            it[activityLevelType] = 1
+            it[activityLevel] = 1
             it[goalType] = 1
             it[isMale] = true
             it[age] = 25
