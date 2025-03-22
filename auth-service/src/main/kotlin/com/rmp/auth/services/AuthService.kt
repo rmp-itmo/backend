@@ -18,8 +18,8 @@ class AuthService(di: DI): FsmService(di) {
 
         val response = newAutoCommitTransaction(redisEvent) {
             this add UserModel
-                .select(UserModel.id, UserModel.login, UserModel.password)
-                .where { UserModel.login eq authInputDto.login }
+                .select(UserModel.id, UserModel.email, UserModel.password)
+                .where { UserModel.email eq authInputDto.login }
         }
 
         val data = response[UserModel]?.firstOrNull() ?: throw ForbiddenException()
