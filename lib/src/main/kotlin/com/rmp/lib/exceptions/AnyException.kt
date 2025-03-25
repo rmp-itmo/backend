@@ -8,6 +8,6 @@ import kotlinx.serialization.Serializable
 data class AnyException (
     val httpStatusCode: Int,
     val httpStatusText: String,
-    val data: String?,
-    val message: String?
+    val data: String? = null,
+    val message: String? = null
 )
