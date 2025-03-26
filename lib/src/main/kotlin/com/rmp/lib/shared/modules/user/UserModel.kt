@@ -21,4 +21,6 @@ object UserModel: IdTable("user_model") {
     val isMale = bool("is_male")
     val age = int("age")
 
+    val nickname = text("nickname")
+    val stepsTarget = int("steps_target")
 }
