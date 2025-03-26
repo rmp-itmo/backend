@@ -1,5 +1,6 @@
 package com.rmp.api.plugins
 
+import com.rmp.api.utils.api.ExceptionResponseDto
 import io.ktor.client.call.*
 import io.ktor.http.*
 import io.ktor.server.application.*
@@ -8,8 +9,6 @@ import io.ktor.server.plugins.statuspages.*
 import io.ktor.server.response.*
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.exceptions.BaseException
-import com.rmp.lib.exceptions.InternalServerException
-import com.rmp.lib.exceptions.BadRequestException as BadRequestExceptionLocal
 import io.ktor.server.plugins.BadRequestException as BadRequestExceptionKtor
 
 fun Application.configureExceptionFilter() {
@@ -21,9 +20,9 @@ fun Application.configureExceptionFilter() {
             call, cause ->
 //                Logger.callFailed(call, cause)
 //                rollbackAndClose()
-                call.respond<InternalServerException>(
+                call.respond<ExceptionResponseDto>(
                     HttpStatusCode.InternalServerError,
-                    InternalServerException(cause.getClientMessage())
+                    ExceptionResponseDto(500, "Internal server error", cause.getClientMessage())
                 )
         }
 
@@ -32,7 +31,7 @@ fun Application.configureExceptionFilter() {
 //                Logger.callFailed(call, requestValidationException)
                 call.respond(
                     status = HttpStatusCode.InternalServerError,
-                    message = InternalServerException(requestValidationException.getClientMessage())
+                    message = ExceptionResponseDto(500, "Internal server error", requestValidationException.getClientMessage())
                 )
         }
 
@@ -41,7 +40,7 @@ fun Application.configureExceptionFilter() {
 //                Logger.callFailed(call, requestValidationException)
                 call.respond(
                     status = HttpStatusCode.UnsupportedMediaType,
-                    message = BadRequestExceptionLocal(requestValidationException.getClientMessage())
+                    message = ExceptionResponseDto(400, "Bad request", requestValidationException.getClientMessage())
                 )
         }
 
@@ -50,7 +49,7 @@ fun Application.configureExceptionFilter() {
 //                Logger.callFailed(call, cause)
                 call.respond(
                     status = HttpStatusCode(cause.httpStatusCode, cause.httpStatusText),
-                    cause
+                    ExceptionResponseDto(cause.httpStatusCode, cause.httpStatusText, cause.message ?: cause.httpStatusText)
                 )
         }
     }
