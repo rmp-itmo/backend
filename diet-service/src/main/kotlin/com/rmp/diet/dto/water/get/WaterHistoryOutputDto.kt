@@ -4,6 +4,6 @@ import com.rmp.lib.utils.redis.SerializableClass
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class WaterGetPerDayListOutputDto(
-    val water: List<WaterGetPerDayOutputDto>?
+data class WaterHistoryOutputDto(
+    val water: List<WaterHistoryItemOutputDto>?
 ): SerializableClass

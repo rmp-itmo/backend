@@ -1,5 +1,5 @@
 package com.rmp.diet.actions.water.get
 
-enum class WaterGetPerDayEventState {
+enum class WaterGetHistoryEventState {
     INIT
 }

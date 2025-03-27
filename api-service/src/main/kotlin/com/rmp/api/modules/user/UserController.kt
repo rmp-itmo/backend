@@ -34,14 +34,23 @@ class UserController(override val di: DI) : KodeinController() {
                         post {
                             call.process("set-user-menu", AppConf.redis.diet)
                         }
+                        patch {
+                            call.process("user-update-menu", AppConf.redis.diet)
+                        }
+                        delete {
+                            call.process("remove-menu-item", AppConf.redis.diet)
+                        }
                         get {
                             call.process("get-user-menu", AppConf.redis.diet)
                         }
                     }
 
-                    route("day") {
+                    route("stat") {
                         post("water") {
-                            call.process("water-get-per-day", AppConf.redis.diet)
+                            call.process("water-history", AppConf.redis.diet)
+                        }
+                        post("menu") {
+                            call.process("menu-history", AppConf.redis.diet)
                         }
                     }
 

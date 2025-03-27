@@ -5,12 +5,12 @@ import com.rmp.lib.utils.redis.fsm.Fsm
 import org.kodein.di.DI
 import org.kodein.di.instance
 
-class DishLogFsm(di: DI): Fsm("user-upload-dish-log", di) {
+class MenuHistoryFsm(di: DI) : Fsm("menu-history", di) {
     private val dietLogService: DietLogService by instance()
 
     override fun Fsm.registerStates() {
-        on(DishLogEventState.INIT) {
-            dietLogService.uploadDish(this)
+        on(MenuHistoryEventState.INIT) {
+            dietLogService.getMenuHistory(this)
         }
     }
 }

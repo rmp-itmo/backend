@@ -7,4 +7,5 @@ object UserMenuItem: IdTable("user_menu_item") {
     val userId = reference("user_id", UserModel)
     val dishId = reference("dish_id", DishModel)
     val mealId = long("meal_id")
+    val checked = bool("checked").default(false)
 }

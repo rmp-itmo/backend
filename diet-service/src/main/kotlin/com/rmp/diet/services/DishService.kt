@@ -1,11 +1,12 @@
 package com.rmp.diet.services
 
-import com.rmp.diet.dto.dish.log.DishLogOutputDto
 import com.rmp.diet.dto.dish.service.SIMPLEDishCreate
 import com.rmp.diet.dto.dish.service.SIMPLEDishListOutput
 import com.rmp.diet.dto.dish.service.SIMPLEDishOutput
 import com.rmp.lib.exceptions.InternalServerException
+import com.rmp.lib.shared.dto.Response
 import com.rmp.lib.shared.modules.dish.DishModel
+import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.insert
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
@@ -34,7 +35,7 @@ class DishService(di: DI): FsmService(di) {
                 }.named("create-dish")
         }["create-dish"]?.firstOrNull() ?: throw InternalServerException("Insert failed")
 
-        redisEvent.switchOnApi(DishLogOutputDto(dish[DishModel.id]))
+        redisEvent.switchOnApi(Response(true, dish[DishModel.id].toString()))
     }
 
     suspend fun getDishes(redisEvent: RedisEvent) {
@@ -75,4 +76,9 @@ class DishService(di: DI): FsmService(di) {
             )
         )
     }
+
+    suspend fun getDishCalories(redisEvent: RedisEvent, dishId: Long): Double? =
+        transaction(redisEvent) {
+            this add DishModel.select(DishModel.calories).where { DishModel.id eq dishId }
+        }[DishModel]?.firstOrNull()?.get(DishModel.calories)
 }

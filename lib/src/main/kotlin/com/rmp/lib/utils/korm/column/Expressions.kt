@@ -50,5 +50,11 @@ infix fun Column<String>.neq(value: String): Operator =
 infix fun Column<String?>.neq(value: String): Operator =
     Operator("${this.fullQualifiedName} != ?", value)
 
+infix fun Column<Boolean>.eq(value: Boolean): Operator =
+    Operator("${this.fullQualifiedName} = ?", value)
+
+infix fun Column<Boolean>.neq(value: Boolean): Operator =
+    Operator("${this.fullQualifiedName} != ?", value)
+
 infix fun Column<*>.eq(value: Column<*>): Operator =
     Operator("${this.fullQualifiedName} = ${value.fullQualifiedName}")

@@ -1,9 +1,9 @@
-package com.rmp.diet.dto.dish.log
+package com.rmp.diet.dto.menu
 
 import com.rmp.lib.utils.redis.SerializableClass
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class DishLogOutputDto(
-    val id: Long,
+data class RemoveMenuItemDto (
+    val menuItemId: Long,
 ): SerializableClass

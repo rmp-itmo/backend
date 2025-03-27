@@ -8,7 +8,7 @@ import com.rmp.lib.utils.korm.references.ReferenceOption
 
 
 open class IdTable(tableName_: String): Table(tableName_) {
-    val id: EntityId = EntityId(this, "id")
+    val id: EntityId by lazy { EntityId(this, "id") }
     val entityCount: EntityCount = EntityCount(this, "count(*)")
     val updateCount: EntityCount = EntityCount(this, "result")
 
@@ -34,6 +34,6 @@ open class IdTable(tableName_: String): Table(tableName_) {
 
     fun delete(row: Row) =
         if (row[id] == null) throw Exception("Can`t remove row without EntityId")
-        else DeleteQueryBuilder(this).executeRow(row)
+        else DeleteQueryBuilder(this).executeRow(row).named("delete-$tableName_")
 
 }

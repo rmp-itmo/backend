@@ -73,10 +73,6 @@ open class QueryDto (
         return Pair(name, this)
     }
 
-    fun Pair<String, QueryDto>.named(name: String): Pair<String, QueryDto> {
-        return name to second
-    }
-
     fun prepare(connection: Connection): PreparedStatement {
         val stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)
         params.forEachIndexed { index, param ->
@@ -117,3 +113,7 @@ class CommitQueryDto: QueryDto(QueryType.COMMIT.value, "", listOf())
 
 @Serializable
 class RollbackQueryDto: QueryDto(QueryType.ROLLBACK.value, "", listOf())
+
+fun Pair<String, QueryDto>.named(name: String): Pair<String, QueryDto> {
+    return name to second
+}

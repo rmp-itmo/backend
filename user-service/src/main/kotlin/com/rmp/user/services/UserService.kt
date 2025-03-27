@@ -1,12 +1,15 @@
 package com.rmp.user.services
 
 import com.rmp.lib.exceptions.*
+import com.rmp.lib.shared.dto.CurrentCaloriesOutputDto
+import com.rmp.lib.shared.dto.DishLogCheckDto
 import com.rmp.lib.shared.modules.user.UserActivityLevelModel
 import com.rmp.lib.shared.modules.user.UserGoalTypeModel
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.insert
 import com.rmp.lib.utils.korm.references.JoinType
+import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
 import com.rmp.lib.utils.security.bcrypt.CryptoUtil
@@ -283,5 +286,38 @@ class UserService(di: DI): FsmService(di) {
         val userData = getUserInfo(redisEvent, user.id, true)
 
         redisEvent.switchOnApi(userData)
+    }
+
+    suspend fun updateCalories(redisEvent: RedisEvent) {
+        // Internal exception по причине того что этот метод вызывается исключительно изнутри (DishService.addMenuItem \ .uploadDish),
+        // и если сюда пришло плохое тело - наша ошибка, а не клиента
+        val user = redisEvent.authorizedUser ?: throw InternalServerException("Bad request")
+        val data = redisEvent.parseData<DishLogCheckDto>() ?: throw InternalServerException("Bad request")
+
+        // Продолжаем старую транзакцию открытую при изменении состояния меню в DishService
+        val userData = transaction(redisEvent) {
+            this add UserModel.select(UserModel.caloriesCurrent).where {
+                UserModel.id eq user.id
+            }
+        }[UserModel]?.firstOrNull() ?: throw InternalServerException("Failed to fetch user")
+
+        val currentCalories = userData[UserModel.caloriesCurrent]
+
+        val newCalories = if (data.check) {
+            currentCalories + data.calories
+        } else {
+            (currentCalories - data.calories).let { if (it < 0) 0.0 else it }
+        }
+
+        val updated = autoCommitTransaction(redisEvent) {
+            this add UserModel.update(UserModel.id eq user.id) {
+                this[UserModel.caloriesCurrent] = newCalories
+            }
+        }[UserModel]
+
+        Logger.debug(updated)
+        Logger.debug(updated!!.first()[UserModel.updateCount])
+
+        redisEvent.switchOnApi(CurrentCaloriesOutputDto(newCalories))
     }
 }

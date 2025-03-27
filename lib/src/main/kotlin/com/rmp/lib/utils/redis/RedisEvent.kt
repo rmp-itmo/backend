@@ -98,7 +98,9 @@ data class RedisEvent (
                     Row.build(it, TableRegister.getColumns(result.parseData))
                 }
             }
-        }?.toMap() ?: mutableMapOf()).let { DbResponseData(it) }
+        }?.toMap() ?: mutableMapOf()).let {
+            DbResponseData(it)
+        }
     }
 
     fun forDb(requestId: Long): RedisEvent {

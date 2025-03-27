@@ -17,6 +17,7 @@ import com.rmp.user.actions.create.UserCreateFsm
 import com.rmp.user.actions.get.UserGetFsm
 import com.rmp.user.actions.sleep.fetch.FetchSleepHistoryFsm
 import com.rmp.user.actions.sleep.set.SetSleepFsm
+import com.rmp.user.actions.update.calories.UserUpdateCurrentCaloriesFsm
 import com.rmp.user.actions.update.steps.UserStepsUpdateFsm
 import com.rmp.user.actions.update.user.UserUpdateFsm
 import com.rmp.user.services.SleepService
@@ -36,6 +37,7 @@ fun main() {
 
         bindSingleton {
             FsmRouter.routing(AppConf.redis.user, it) {
+                fsm(UserUpdateCurrentCaloriesFsm(it))
                 fsm(UserCreateFsm(it))
                 fsm(UserGetFsm(it))
                 fsm(UserUpdateFsm(it))

@@ -5,12 +5,12 @@ import com.rmp.lib.utils.redis.fsm.Fsm
 import org.kodein.di.DI
 import org.kodein.di.instance
 
-class WaterGetPerDayFsm(di: DI) : Fsm("water-get-per-day", di) {
+class WaterGetHistoryFsm(di: DI) : Fsm("water-history", di) {
     private val dietLogService: DietLogService by instance()
 
     override fun Fsm.registerStates() {
-        on(WaterGetPerDayEventState.INIT) {
-            dietLogService.getWaterPerDay(this)
+        on(WaterGetHistoryEventState.INIT) {
+            dietLogService.getWaterHistory(this)
         }
     }
 }
