@@ -25,8 +25,8 @@ class DailyTargetSetService(di: DI): FsmService(di) {
                     if (data.calories != null) {
                         UserModel.caloriesTarget.set(data.calories)
                     }
-                }.named("update-targets")
-        }
+                }
+        }[UserModel]
         redisEvent.switchOnApi(TargetSetOutputDto("success"))
     }
 }

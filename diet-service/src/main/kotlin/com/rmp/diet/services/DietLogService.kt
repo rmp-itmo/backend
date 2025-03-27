@@ -4,21 +4,26 @@ import com.rmp.diet.actions.dish.log.DishLogEventState
 import com.rmp.diet.dto.dish.CreateDishDto
 import com.rmp.diet.dto.dish.log.DishLogUploadDto
 import com.rmp.diet.dto.dish.log.DishLogOutputDto
-import com.rmp.diet.dto.water.WaterLogOutputDto
-import com.rmp.diet.dto.water.WaterLogUploadDto
+import com.rmp.diet.dto.water.get.WaterGetPerDayListOutputDto
+import com.rmp.diet.dto.water.get.WaterGetPerDayOutputDto
+import com.rmp.diet.dto.water.log.WaterLogOutputDto
+import com.rmp.diet.dto.water.log.WaterLogUploadDto
 import com.rmp.lib.exceptions.BadRequestException
 import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.exceptions.InternalServerException
 import com.rmp.lib.shared.conf.AppConf
+import com.rmp.lib.shared.dto.TimeDto
 import com.rmp.lib.shared.modules.diet.DietDishLogModel
 import com.rmp.lib.shared.modules.diet.DietWaterLogModel
 import com.rmp.lib.shared.modules.dish.DishModel
+import com.rmp.lib.utils.korm.column.eq
+import com.rmp.lib.utils.korm.column.grEq
+import com.rmp.lib.utils.korm.column.lessEq
 import com.rmp.lib.utils.korm.insert
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
 import org.kodein.di.DI
-import java.time.LocalDateTime
-import java.time.ZoneOffset
+import java.time.*
 
 class DietLogService(di: DI): FsmService(di, AppConf.redis.diet) {
     private val offset = AppConf.zoneOffset
@@ -105,5 +110,54 @@ class DietLogService(di: DI): FsmService(di, AppConf.redis.diet) {
         }["insert-dish-log"]?.firstOrNull() ?: throw InternalServerException("Insert failed")
 
         redisEvent.switchOnApi(DishLogOutputDto(log[DietDishLogModel.id]))
+    }
+
+    suspend fun getWaterPerDay(redisEvent: RedisEvent) {
+        val user = redisEvent.authorizedUser ?: throw ForbiddenException()
+        val day = redisEvent.parseData<TimeDto>() ?: throw BadRequestException("Bad timestamp value provided")
+
+        val (start, end) = getDayBounds(day.timestamp)
+
+        val select = newAutoCommitTransaction(redisEvent) {
+            this add DietWaterLogModel
+                .select(DietWaterLogModel.time, DietWaterLogModel.volume)
+                .where { DietWaterLogModel.userId eq user.id }
+                .andWhere {
+                    DietWaterLogModel.time grEq start
+                }.apply {
+                    if (end != null) {
+                        this.andWhere {
+                            DietWaterLogModel.time lessEq end
+                        }
+                    }
+                }
+        }[DietWaterLogModel]
+
+        redisEvent.switchOnApi(
+            WaterGetPerDayListOutputDto(
+                select?.map {
+                    WaterGetPerDayOutputDto(
+                        it[DietWaterLogModel.time],
+                        it[DietWaterLogModel.volume],
+                    )
+                }
+            )
+        )
+    }
+
+    private fun getDayBounds(timestamp: Long): Pair<Long, Long?> {
+        val instant = Instant.ofEpochSecond(timestamp)
+        val dateTime = instant.atOffset(ZoneOffset.ofHours(offset)).toLocalDateTime()
+        val date = dateTime.toLocalDate()
+
+        val startOfDay = date.atStartOfDay().toEpochSecond(ZoneOffset.ofHours(offset))
+
+        val endOfDay = if (date.isBefore(LocalDate.now(ZoneOffset.ofHours(offset)))) {
+            date.plusDays(1).atStartOfDay().toEpochSecond(ZoneOffset.ofHours(offset)) - 1
+        } else {
+            null
+        }
+
+        return startOfDay to endOfDay
     }
 }

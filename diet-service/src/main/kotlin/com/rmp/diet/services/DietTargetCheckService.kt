@@ -1,13 +1,13 @@
 package com.rmp.diet.services
 
 import com.rmp.diet.actions.target.check.DailyTargetCheckEventState
-import com.rmp.diet.dto.target.check.TargetCheckInputDto
 import com.rmp.diet.dto.target.check.TargetCheckResultDto
 import com.rmp.diet.dto.target.check.TargetCheckSupportDto
 import com.rmp.lib.exceptions.BadRequestException
 import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.exceptions.InternalServerException
 import com.rmp.lib.shared.conf.AppConf
+import com.rmp.lib.shared.dto.TimeDto
 import com.rmp.lib.shared.modules.diet.DietDishLogModel
 import com.rmp.lib.shared.modules.diet.DietWaterLogModel
 import com.rmp.lib.shared.modules.dish.DishModel
@@ -21,7 +21,7 @@ import org.kodein.di.DI
 class DietTargetCheckService(di: DI): FsmService(di) {
 
     suspend fun init(redisEvent: RedisEvent) {
-        val data = redisEvent.parseData<TargetCheckInputDto>() ?: throw BadRequestException("Timestamp is not provided")
+        val data = redisEvent.parseData<TimeDto>() ?: throw BadRequestException("Timestamp is not provided")
         val user = redisEvent.authorizedUser ?: throw ForbiddenException()
         val select = newAutoCommitTransaction(redisEvent) {
             this add UserModel
@@ -126,8 +126,8 @@ class DietTargetCheckService(di: DI): FsmService(di) {
                     } else {
                         UserModel.caloriesStreak.set(UserModel.caloriesStreak.defaultValue ?: 0)
                     }
-                }.named("update-streaks")
-        }["update-streaks"]
+                }
+        }[UserModel]
 
         redisEvent.switchOnApi(data.result)
     }

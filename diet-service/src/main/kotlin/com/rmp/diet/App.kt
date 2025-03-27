@@ -7,7 +7,8 @@ import com.rmp.diet.actions.target.check.DailyTargetCheckFsm
 import com.rmp.diet.actions.target.set.DailyTargetSetFsm
 import com.rmp.diet.actions.user.menu.get.GetUserMenuFsm
 import com.rmp.diet.actions.user.menu.set.SetUserMenuFsm
-import com.rmp.diet.actions.water.WaterLogFsm
+import com.rmp.diet.actions.water.get.WaterGetPerDayFsm
+import com.rmp.diet.actions.water.log.WaterLogFsm
 import com.rmp.diet.services.*
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.modules.diet.DietDishLogModel
@@ -51,6 +52,8 @@ fun main() {
                 fsm(SetUserMenuFsm(it))
                 fsm(GetUserMenuFsm(it))
                 fsm(DailyTargetSetFsm(it))
+
+                fsm(WaterGetPerDayFsm(it))
             }
         }
     }

@@ -39,6 +39,13 @@ class UserController(override val di: DI) : KodeinController() {
                             call.process("get-user-menu", AppConf.redis.diet)
                         }
                     }
+
+                    route("day") {
+                        post("water") {
+                            call.process("water-get-per-day", AppConf.redis.diet)
+                        }
+                    }
+
                     route("log") {
                         post("water") {
                            call.process("user-upload-water-log", AppConf.redis.diet)
