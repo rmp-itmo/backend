@@ -88,7 +88,7 @@ fun main() {
         // User
         this add UserModel.insert {
             it[name] = "User"
-            it[email] = "login"
+            it[email] = "login@test.test"
             it[password] = CryptoUtil.hash("password")
             it[waterTarget] = 1.2
             it[caloriesTarget] = 4.1
@@ -99,6 +99,8 @@ fun main() {
             it[isMale] = true
             it[age] = 25
         }.named("insert-base-user")
+
+
     }
 
     val kodein = DI {

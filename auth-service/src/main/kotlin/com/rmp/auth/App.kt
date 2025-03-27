@@ -7,6 +7,7 @@ import com.rmp.auth.services.AuthService
 import com.rmp.auth.services.GetMeService
 import com.rmp.auth.services.RefreshService
 import com.rmp.lib.shared.conf.AppConf
+import com.rmp.lib.shared.modules.user.UserGoalTypeModel
 import com.rmp.lib.shared.modules.user.UserLoginModel
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.kodein.bindSingleton
@@ -54,7 +55,7 @@ fun main() {
         }
     }
 
-    TableRegister.register(DbType.PGSQL, UserModel, UserLoginModel)
+    TableRegister.register(DbType.PGSQL, UserModel, UserLoginModel, UserGoalTypeModel)
 
     val router by kodein.instance<FsmRouter>()
 

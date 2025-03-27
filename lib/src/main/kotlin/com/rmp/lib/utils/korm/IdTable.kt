@@ -10,10 +10,11 @@ import com.rmp.lib.utils.korm.references.ReferenceOption
 open class IdTable(tableName_: String): Table(tableName_) {
     val id: EntityId = EntityId(this, "id")
     val entityCount: EntityCount = EntityCount(this, "count(*)")
+    val updateCount: EntityCount = EntityCount(this, "result")
 
     val references: MutableMap<IdTable, MutableList<Reference>> = mutableMapOf()
 
-    override val columns: MutableMap<String, Column<*>> = mutableMapOf("id" to id, "count(*)" to entityCount)
+    override val columns: MutableMap<String, Column<*>> = mutableMapOf("id" to id, "count(*)" to entityCount, "result" to updateCount)
 
     fun hasRef(table: Table): Boolean = references.containsKey(table)
 
@@ -26,7 +27,7 @@ open class IdTable(tableName_: String): Table(tableName_) {
             it
         }
 
-    fun update(row: Row): QueryDto {
+    fun update(row: Row): Pair<String, QueryDto> {
         if (row[id] == null) throw Exception("Can`t update row without EntityId")
         return UpdateQueryBuilder(this).executeRow(row)
     }
