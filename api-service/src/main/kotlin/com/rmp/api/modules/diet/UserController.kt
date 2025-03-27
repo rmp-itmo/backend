@@ -21,6 +21,16 @@ class UserController(override val di: DI) : KodeinController() {
                         call.process("get-user", AppConf.redis.user)
                     }
 
+                    route("update") {
+                        post {
+                            call.process("update-user", AppConf.redis.user)
+                        }
+                        post("steps") {
+                            call.process("update-user-steps", AppConf.redis.user)
+                        }
+                    }
+
+
                     route("menu") {
                         post {
                             call.process("set-user-menu", AppConf.redis.diet)

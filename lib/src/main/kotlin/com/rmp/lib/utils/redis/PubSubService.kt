@@ -49,6 +49,7 @@ open class PubSubService(val serviceName: String, di: DI) : KodeinService(di) {
                         Logger.debug("Pending request found ${pendingDbRequests[item.id]}")
                         val (initiator, deferred) = pendingDbRequests.getValue(item.id)
                         initiator.tid = item.value.tid
+                        Logger.debug("DB RESPONSE RECEIVED: ${item.value}")
                         deferred.complete(item.value.parseDb())
                         pendingDbRequests -= item.id
                     }

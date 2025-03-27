@@ -71,24 +71,27 @@ fun main() {
             it[name] = "Low"
             it[caloriesCoefficient] = 1.2F
             it[waterCoefficient] = 0.03F
+            it[defaultSteps] = 6000
         }.named("insert-low-activity-type")
 
         this add UserActivityLevelModel.insert {
             it[name] = "Medium"
             it[caloriesCoefficient] = 1.55F
             it[waterCoefficient] = 0.04F
+            it[defaultSteps] = 8000
         }.named("insert-medium-activity-type")
 
         this add UserActivityLevelModel.insert {
             it[name] = "High"
             it[caloriesCoefficient] = 1.75F
             it[waterCoefficient] = 0.05F
+            it[defaultSteps] = 10000
         }.named("insert-high-activity-type")
 
         // User
         this add UserModel.insert {
             it[name] = "User"
-            it[email] = "login"
+            it[email] = "login@test.test"
             it[password] = CryptoUtil.hash("password")
             it[waterTarget] = 1.2
             it[caloriesTarget] = 4.1
@@ -98,7 +101,11 @@ fun main() {
             it[goalType] = 1
             it[isMale] = true
             it[age] = 25
+            it[nickname] = "nickname"
+            it[stepsTarget] = 6000
         }.named("insert-base-user")
+
+
     }
 
     val kodein = DI {

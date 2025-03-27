@@ -38,5 +38,13 @@ infix fun Column<String>.eq(value: String): Operator =
 infix fun Column<String?>.eq(value: String): Operator =
     Operator("${this.fullQualifiedName} = ?", value)
 
+@JvmName("neq")
+infix fun Column<String>.neq(value: String): Operator =
+    Operator("${this.fullQualifiedName} != ?", value)
+
+@JvmName("neq_nullable")
+infix fun Column<String?>.neq(value: String): Operator =
+    Operator("${this.fullQualifiedName} != ?", value)
+
 infix fun Column<*>.eq(value: Column<*>): Operator =
     Operator("${this.fullQualifiedName} = ${value.fullQualifiedName}")

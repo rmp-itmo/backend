@@ -125,7 +125,7 @@ object TransactionManager {
                 Triple(
                     connectionName,
                     connection,
-                    ExecutionResult(mutableMapOf(), executeNoResult(connection, query))
+                    ExecutionResult(query.queryParseData ?: mutableMapOf(), executeNoResult(connection, query))
                 )
             }
 
@@ -249,6 +249,8 @@ object TransactionManager {
 
         val result = stmt.executeUpdate()
 
+        Logger.debug("$result")
+
         return listOf(RowDto(mutableMapOf("result" to result)))
     }
 
@@ -280,6 +282,7 @@ object TransactionManager {
         connection.close()
 
         val query = BatchBuilder.buildAutoCommit(initScript ?: return)
-        processBatchQuery(query)
+        val result = processBatchQuery(query)
+        Logger.debug(result)
     }
 }
