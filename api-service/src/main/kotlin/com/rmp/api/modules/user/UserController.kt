@@ -1,4 +1,4 @@
-package com.rmp.api.modules.diet
+package com.rmp.api.modules.user
 
 import com.rmp.api.utils.kodein.KodeinController
 import com.rmp.lib.shared.conf.AppConf

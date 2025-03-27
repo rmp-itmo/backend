@@ -1,9 +1,6 @@
 package com.rmp.user.services
 
-import com.rmp.lib.exceptions.BadRequestException
-import com.rmp.lib.exceptions.DuplicateEntityException
-import com.rmp.lib.exceptions.ForbiddenException
-import com.rmp.lib.exceptions.InternalServerException
+import com.rmp.lib.exceptions.*
 import com.rmp.lib.shared.modules.user.UserActivityLevelModel
 import com.rmp.lib.shared.modules.user.UserGoalTypeModel
 import com.rmp.lib.shared.modules.user.UserModel
@@ -69,12 +66,15 @@ class UserService(di: DI): FsmService(di) {
                 }.named("insert-user")
         }["insert-user"]?.firstOrNull() ?: throw InternalServerException("Insert failed")
 
-        newAutoCommitTransaction(redisEvent) {
+        val update = newAutoCommitTransaction(redisEvent) {
             this add UserModel
                 .update(UserModel.id eq user[UserModel.id]) {
                     UserModel.nickname.set("${data.name}-${user[UserModel.id]}")
-                }.named("insert-user-nickname")
+                }
         }
+
+        val count = update[UserModel]?.firstOrNull()?.get(UserModel.updateCount)
+        if (count == null || count < 1) throw InternalServerException("Failed to update")
 
         redisEvent.switchOnApi(UserCreateOutputDto(user[UserModel.id]))
     }
@@ -110,7 +110,7 @@ class UserService(di: DI): FsmService(di) {
         }[UserModel]?.firstOrNull()
 
         if (user != null) {
-            throw DuplicateEntityException("User already exists")
+            throw DoubleRecordException("User already exists")
         }
     }
 
@@ -190,7 +190,7 @@ class UserService(di: DI): FsmService(di) {
             activityTypeSelect!![UserActivityLevelModel.id]
         }
 
-        newAutoCommitTransaction(redisEvent) {
+        val update = newAutoCommitTransaction(redisEvent) {
             this add UserModel
                 .update(UserModel.id eq authUser.id) {
                     UserModel.name.set(data.name?: userData.name)
@@ -208,8 +208,11 @@ class UserService(di: DI): FsmService(di) {
                     }
                     UserModel.activityLevel.set(activity)
                     UserModel.goalType.set(goal)
-                }.named("update-user")
+                }
         }
+
+        val count = update[UserModel]?.firstOrNull()?.get(UserModel.updateCount)
+        if (count == null || count < 1) throw InternalServerException("Failed to update")
 
         redisEvent.switchOnApi(UserCreateOutputDto(authUser.id))
     }
@@ -222,7 +225,7 @@ class UserService(di: DI): FsmService(di) {
                 .where { UserModel.nickname eq nick }
         }[UserModel]?.firstOrNull()
         if (user != null) {
-            throw DuplicateEntityException("This nickname already in use")
+            throw DoubleRecordException("This nickname already in use")
         } else {
             return true
         }
@@ -232,12 +235,16 @@ class UserService(di: DI): FsmService(di) {
         val user = redisEvent.authorizedUser?: throw ForbiddenException()
         val stepsDto = redisEvent.parseData<UserStepsUpdateDto>() ?: throw BadRequestException("Invalid steps value provided")
 
-        newAutoCommitTransaction(redisEvent) {
+        val update = newAutoCommitTransaction(redisEvent) {
             this add UserModel
             .update(UserModel.id eq user.id) {
                 UserModel.stepsTarget.set(stepsDto.steps)
-            }.named("update-user-steps")
+            }
         }
+
+        val count = update[UserModel]?.firstOrNull()?.get(UserModel.updateCount)
+        if (count == null || count < 1) throw InternalServerException("Failed to update")
+
         redisEvent.switchOnApi(UserCreateOutputDto(user.id))
     }
 
