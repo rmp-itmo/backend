@@ -30,7 +30,6 @@ class UserController(override val di: DI) : KodeinController() {
                         }
                     }
 
-
                     route("menu") {
                         post {
                             call.process("set-user-menu", AppConf.redis.diet)
@@ -39,6 +38,13 @@ class UserController(override val di: DI) : KodeinController() {
                             call.process("get-user-menu", AppConf.redis.diet)
                         }
                     }
+
+                    route("day") {
+                        post("water") {
+                            call.process("water-get-per-day", AppConf.redis.diet)
+                        }
+                    }
+
                     route("log") {
                         post("water") {
                            call.process("user-upload-water-log", AppConf.redis.diet)
@@ -48,6 +54,7 @@ class UserController(override val di: DI) : KodeinController() {
                            call.process("user-upload-dish-log", AppConf.redis.diet)
                         }
                     }
+
                     route("target") {
                         post("check") {
                             call.process("user-daily-target-check", AppConf.redis.diet)
