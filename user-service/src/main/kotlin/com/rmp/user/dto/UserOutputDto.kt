@@ -18,4 +18,9 @@ data class UserOutputDto(
     val caloriesTarget: Double,
     val waterStreak: Int,
     val caloriesStreak: Int,
+    val nickName: String,
+    val stepsTarget: Int,
+    val waterCoefficient: Float? = null,
+    val caloriesCoefficient: Float? = null,
+    val goalCoefficient: Float? = null,
 ): SerializableClass

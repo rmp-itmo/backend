@@ -14,6 +14,8 @@ import com.rmp.lib.utils.redis.fsm.FsmRouter
 import com.rmp.lib.utils.redis.subscribe
 import com.rmp.user.actions.create.UserCreateFsm
 import com.rmp.user.actions.get.UserGetFsm
+import com.rmp.user.actions.update.steps.UserStepsUpdateFsm
+import com.rmp.user.actions.update.user.UserUpdateFsm
 import com.rmp.user.services.UserService
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
@@ -31,6 +33,8 @@ fun main() {
             FsmRouter.routing(AppConf.redis.user, it) {
                 fsm(UserCreateFsm(it))
                 fsm(UserGetFsm(it))
+                fsm(UserUpdateFsm(it))
+                fsm(UserStepsUpdateFsm(it))
             }
         }
     }
