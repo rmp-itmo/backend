@@ -1,6 +1,7 @@
 package com.rmp.user.services
 
 import com.rmp.lib.exceptions.BadRequestException
+import com.rmp.lib.exceptions.DuplicateEntityException
 import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.exceptions.InternalServerException
 import com.rmp.lib.shared.modules.user.UserActivityLevelModel
@@ -109,7 +110,7 @@ class UserService(di: DI): FsmService(di) {
         }[UserModel]?.firstOrNull()
 
         if (user != null) {
-            throw BadRequestException("User already exists")
+            throw DuplicateEntityException("User already exists")
         }
     }
 
@@ -221,7 +222,7 @@ class UserService(di: DI): FsmService(di) {
                 .where { UserModel.nickname eq nick }
         }[UserModel]?.firstOrNull()
         if (user != null) {
-            throw BadRequestException("This nickname already in use")
+            throw DuplicateEntityException("This nickname already in use")
         } else {
             return true
         }
