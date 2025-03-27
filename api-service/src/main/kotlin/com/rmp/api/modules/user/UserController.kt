@@ -1,4 +1,4 @@
-package com.rmp.api.modules.diet
+package com.rmp.api.modules.user
 
 import com.rmp.api.utils.kodein.KodeinController
 import com.rmp.lib.shared.conf.AppConf
@@ -30,7 +30,6 @@ class UserController(override val di: DI) : KodeinController() {
                         }
                     }
 
-
                     route("menu") {
                         post {
                             call.process("set-user-menu", AppConf.redis.diet)
@@ -55,6 +54,7 @@ class UserController(override val di: DI) : KodeinController() {
                            call.process("user-upload-dish-log", AppConf.redis.diet)
                         }
                     }
+
                     route("target") {
                         post("check") {
                             call.process("user-daily-target-check", AppConf.redis.diet)

@@ -1,7 +1,7 @@
 package com.rmp.api
 
 import com.rmp.api.conf.ServerConf
-import com.rmp.api.modules.diet.UserController
+import com.rmp.api.modules.user.UserController
 import com.rmp.api.modules.auth.AuthController
 import com.rmp.api.modules.diet.ServiceController
 import com.rmp.api.modules.paprika.PaprikaController
