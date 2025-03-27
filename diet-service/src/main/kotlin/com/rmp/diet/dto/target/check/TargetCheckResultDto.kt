@@ -7,4 +7,5 @@ import kotlinx.serialization.Serializable
 data class TargetCheckResultDto (
     var dishes: Boolean? = null,
     var water: Boolean? = null,
+    var steps: Boolean? = null,
 ): SerializableClass

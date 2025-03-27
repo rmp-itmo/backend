@@ -42,6 +42,8 @@ fun main() {
     TableRegister.register(DbType.PGSQL, DietDishLogModel, DietWaterLogModel)
     TableRegister.register(DbType.PGSQL, UserMenuModel, UserMenuItem)
     TableRegister.register(DbType.PGSQL, UserSleepModel)
+    TableRegister.register(DbType.PGSQL, UserHeartLogModel)
+    TableRegister.register(DbType.PGSQL, UserStepsLogModel)
 
     TransactionManager.initTables(
         forceRecreate = true,

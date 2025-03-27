@@ -48,15 +48,19 @@ class DailyTargetService(di: DI) : FsmService(di, AppConf.redis.diet) {
 
         val select = newTransaction(redisEvent) {
             this add UserModel
-                .select(UserModel.waterTarget, UserModel.caloriesTarget)
+                .select(UserModel.waterTarget, UserModel.caloriesTarget, UserModel.stepsTarget, UserModel.stepsCount)
                 .where { UserModel.id eq user.id }
         }
 
         val targets = select[UserModel]?.firstOrNull() ?: throw InternalServerException("")
 
         val supportData = TargetCheckSupportDto(
-            targets = Pair(targets[UserModel.caloriesTarget], targets[UserModel.waterTarget]),
-            result = TargetCheckResultDto(),
+            targets = Triple(
+                targets[UserModel.caloriesTarget],
+                targets[UserModel.waterTarget],
+                targets[UserModel.stepsTarget]
+            ),
+            result = TargetCheckResultDto(steps = targets[UserModel.stepsTarget] <= targets[UserModel.stepsCount],),
             timestamp = data.date
         )
 
@@ -143,6 +147,12 @@ class DailyTargetService(di: DI) : FsmService(di, AppConf.redis.diet) {
         val data = redisEvent.parseData<TargetCheckSupportDto>() ?: throw InternalServerException("No support data")
         val user = redisEvent.authorizedUser ?: throw Exception("Bad user")
 
+        val currentStreaks = newAutoCommitTransaction(redisEvent) {
+            this add UserModel
+                .select(UserModel.waterStreak, UserModel.caloriesStreak, UserModel.stepsStreak)
+                .where { UserModel.id eq user.id }
+        }[UserModel]?.firstOrNull() ?: throw InternalServerException("Streaks select error")
+
 
         autoCommitTransaction(redisEvent) {
             this add UserModel
@@ -158,8 +168,16 @@ class DailyTargetService(di: DI) : FsmService(di, AppConf.redis.diet) {
                     } else {
                         this[UserModel.caloriesStreak] = 0
                     }
+
                     this[UserModel.caloriesCurrent] = 0.0
                     this[UserModel.waterCurrent] = 0.0
+                    this[UserModel.stepsCount] = 0
+
+                    if (data.result.steps == true) {
+                        UserModel.stepsStreak += 1
+                    } else {
+                        this[UserModel.stepsStreak] = 0
+                    }
                 }
         }[UserModel]
 

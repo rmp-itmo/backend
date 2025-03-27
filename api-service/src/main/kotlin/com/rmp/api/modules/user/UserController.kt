@@ -62,6 +62,15 @@ class UserController(override val di: DI) : KodeinController() {
                         post("dish") {
                            call.process("user-upload-dish-log", AppConf.redis.diet)
                         }
+
+                        post("steps") {
+                            call.process("user-upload-steps-log", AppConf.redis.user)
+                        }
+
+                        post("heart") {
+                            call.process("user-upload-heart-log", AppConf.redis.user)
+                        }
+
                     }
 
                     route("target") {

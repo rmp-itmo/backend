@@ -26,4 +26,7 @@ object UserModel: IdTable("user_model") {
 
     val waterCurrent = double("water_current").default(0.0)
     val caloriesCurrent = double("calories_current").default(0.0)
+
+    val stepsCount = int("steps_count").default(0)
+    val stepsStreak = int("steps_streak").default(0)
 }
