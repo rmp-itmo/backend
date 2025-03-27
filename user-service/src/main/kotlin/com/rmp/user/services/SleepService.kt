@@ -9,7 +9,6 @@ import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.column.inRange
 import com.rmp.lib.utils.korm.insert
 import com.rmp.lib.utils.korm.query.builders.filter.and
-import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
 import com.rmp.user.dto.sleep.UserSleepDto
@@ -35,7 +34,6 @@ class SleepService(di: DI): FsmService(di) {
 
     suspend fun setTodaySleep(redisEvent: RedisEvent) {
         val authorizedUser = redisEvent.authorizedUser ?: throw ForbiddenException()
-        Logger.debug("HERE $authorizedUser")
         val sleepData = redisEvent.parseData<UserSleepInputDto>() ?: throw BadRequestException("Bad data provided")
 
         val insert = newTransaction(redisEvent) {
