@@ -5,6 +5,7 @@ import com.rmp.api.modules.user.UserController
 import com.rmp.api.modules.auth.AuthController
 import com.rmp.api.modules.diet.ServiceController
 import com.rmp.api.modules.paprika.PaprikaController
+import com.rmp.api.modules.sleep.SleepController
 import com.rmp.api.utils.api.ApiService
 import com.rmp.api.plugins.*
 import com.rmp.api.utils.kodein.bindSingleton
@@ -30,6 +31,7 @@ val kodein = DI {
     bindSingleton { UserController(it) }
     bindSingleton { PaprikaController(it) }
     bindSingleton { ServiceController(it) }
+    bindSingleton { SleepController(it) }
 }
 
 fun main() {

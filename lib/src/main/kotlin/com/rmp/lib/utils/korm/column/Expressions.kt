@@ -1,6 +1,7 @@
 package com.rmp.lib.utils.korm.column
 
 import com.rmp.lib.utils.korm.query.builders.filter.Operator
+import com.rmp.lib.utils.korm.query.builders.filter.and
 
 fun <T> Column<T?>.isNull(): Operator =
     Operator("${this.fullQualifiedName} is NULL")
@@ -28,6 +29,9 @@ infix fun <T: Number, R: Number> Column<T>.lessEq(value: R): Operator =
 
 infix fun <T: Number, R: Number> Column<T>.grEq(value: R): Operator =
     Operator("${this.fullQualifiedName} >= ?", value)
+
+fun <T: Number, R: Number> Column<T>.inRange(l: R, r: R): Operator =
+    Operator("${this.fullQualifiedName} >= ?", l) and Operator("${this.fullQualifiedName} <= ?", r)
 
 
 @JvmName("eq")
