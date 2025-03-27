@@ -25,15 +25,19 @@ class DietTargetCheckService(di: DI): FsmService(di) {
         val user = redisEvent.authorizedUser ?: throw ForbiddenException()
         val select = newAutoCommitTransaction(redisEvent) {
             this add UserModel
-                .select(UserModel.waterTarget, UserModel.caloriesTarget)
+                .select(UserModel.waterTarget, UserModel.caloriesTarget, UserModel.stepsTarget, UserModel.stepsCount)
                 .where { UserModel.id eq user.id }
         }
 
         val targets = select[UserModel]?.firstOrNull() ?: throw InternalServerException("")
 
         val supportData = TargetCheckSupportDto(
-            targets = Pair(targets[UserModel.caloriesTarget], targets[UserModel.waterTarget]),
-            result = TargetCheckResultDto(),
+            targets = Triple(
+                targets[UserModel.caloriesTarget],
+                targets[UserModel.waterTarget],
+                targets[UserModel.stepsTarget]
+            ),
+            result = TargetCheckResultDto(steps = targets[UserModel.stepsTarget] <= targets[UserModel.stepsCount],),
             timestamp = data.timestamp
         )
 
@@ -108,13 +112,16 @@ class DietTargetCheckService(di: DI): FsmService(di) {
 
         val currentStreaks = newAutoCommitTransaction(redisEvent) {
             this add UserModel
-                .select(UserModel.waterStreak, UserModel.caloriesStreak)
+                .select(UserModel.waterStreak, UserModel.caloriesStreak, UserModel.stepsStreak)
                 .where { UserModel.id eq user.id }
         }[UserModel]?.firstOrNull() ?: throw InternalServerException("Streaks select error")
 
         newAutoCommitTransaction(redisEvent) {
             this add UserModel
                 .update(UserModel.id eq user.id) {
+
+                    UserModel.stepsCount.set(UserModel.stepsCount.defaultValue ?: 0)
+
                     if (data.result.water == true) {
                         UserModel.waterStreak.set(currentStreaks[UserModel.waterStreak] + 1)
                     } else {
@@ -125,6 +132,12 @@ class DietTargetCheckService(di: DI): FsmService(di) {
                         UserModel.caloriesStreak.set(currentStreaks[UserModel.caloriesStreak] + 1)
                     } else {
                         UserModel.caloriesStreak.set(UserModel.caloriesStreak.defaultValue ?: 0)
+                    }
+
+                    if (data.result.steps == true) {
+                        UserModel.stepsStreak.set(currentStreaks[UserModel.stepsStreak] + 1)
+                    } else {
+                        UserModel.stepsStreak.set(UserModel.stepsStreak.defaultValue ?: 0)
                     }
                 }
         }[UserModel]

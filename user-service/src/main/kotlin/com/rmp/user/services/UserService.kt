@@ -3,6 +3,7 @@ package com.rmp.user.services
 import com.rmp.lib.exceptions.*
 import com.rmp.lib.shared.modules.user.UserActivityLevelModel
 import com.rmp.lib.shared.modules.user.UserGoalTypeModel
+import com.rmp.lib.shared.modules.user.UserHeartLogModel
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.insert
@@ -12,7 +13,6 @@ import com.rmp.lib.utils.redis.fsm.FsmService
 import com.rmp.lib.utils.security.bcrypt.CryptoUtil
 import com.rmp.user.dto.*
 import org.kodein.di.DI
-
 class UserService(di: DI): FsmService(di) {
     suspend fun createUser(redisEvent: RedisEvent) {
         val data = redisEvent.parseData<UserCreateInputDto>() ?: throw BadRequestException("Invalid data provided")
@@ -231,23 +231,6 @@ class UserService(di: DI): FsmService(di) {
         }
     }
 
-    suspend fun updateSteps(redisEvent: RedisEvent) {
-        val user = redisEvent.authorizedUser?: throw ForbiddenException()
-        val stepsDto = redisEvent.parseData<UserStepsUpdateDto>() ?: throw BadRequestException("Invalid steps value provided")
-
-        val update = newAutoCommitTransaction(redisEvent) {
-            this add UserModel
-            .update(UserModel.id eq user.id) {
-                UserModel.stepsTarget.set(stepsDto.steps)
-            }
-        }
-
-        val count = update[UserModel]?.firstOrNull()?.get(UserModel.updateCount)
-        if (count == null || count < 1) throw InternalServerException("Failed to update")
-
-        redisEvent.switchOnApi(UserCreateOutputDto(user.id))
-    }
-
     private suspend fun getUserInfo(redisEvent: RedisEvent, id: Long, isOutput: Boolean): UserOutputDto {
         val select = newAutoCommitTransaction(redisEvent) {
             this add UserModel
@@ -255,6 +238,7 @@ class UserService(di: DI): FsmService(di) {
                     UserModel.id, UserModel.name, UserModel.email, UserModel.age, UserModel.height,
                     UserModel.weight, UserModel.isMale, UserModel.caloriesStreak, UserModel.waterStreak,
                     UserModel.caloriesTarget, UserModel.waterTarget, UserModel.nickname, UserModel.stepsTarget,
+                    UserModel.stepsCount,
                     UserActivityLevelModel.name, UserActivityLevelModel.caloriesCoefficient,
                     UserActivityLevelModel.waterCoefficient, UserGoalTypeModel.name,
                     UserGoalTypeModel.coefficient
@@ -262,6 +246,12 @@ class UserService(di: DI): FsmService(di) {
                 .join(UserActivityLevelModel, JoinType.INNER, UserActivityLevelModel.id eq UserModel.activityLevel)
                 .join(UserGoalTypeModel, JoinType.INNER, UserGoalTypeModel.id eq UserModel.goalType)
         }[UserModel]?.firstOrNull() ?: throw BadRequestException("User does not exist")
+
+        val heartRate = newAutoCommitTransaction(redisEvent) {
+            this add UserHeartLogModel
+                .select(UserHeartLogModel.heartRate)
+                .where { UserHeartLogModel.user eq id }
+        }[UserHeartLogModel]?.lastOrNull()?.get(UserHeartLogModel.heartRate)
 
         return UserOutputDto(
             select[UserModel.id], select[UserModel.name], select[UserModel.email],
@@ -271,6 +261,8 @@ class UserService(di: DI): FsmService(di) {
             select[UserModel.waterStreak], select[UserModel.caloriesStreak],
             select[UserModel.nickname],
             select[UserModel.stepsTarget],
+            select[UserModel.stepsCount],
+            heartRate,
             waterCoefficient = if (!isOutput) select[UserActivityLevelModel.waterCoefficient] else null,
             caloriesCoefficient = if (!isOutput) select[UserActivityLevelModel.caloriesCoefficient] else null,
             goalCoefficient = if (!isOutput) select[UserGoalTypeModel.coefficient] else null

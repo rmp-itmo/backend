@@ -23,4 +23,7 @@ object UserModel: IdTable("user_model") {
 
     val nickname = text("nickname")
     val stepsTarget = int("steps_target")
+
+    val stepsCount = int("steps_count").default(0)
+    val stepsStreak = int("steps_streak").default(0)
 }

@@ -1,16 +1,16 @@
-package com.rmp.user.actions.update.steps
+package com.rmp.user.actions.steps.update
 
 import com.rmp.lib.utils.redis.fsm.Fsm
-import com.rmp.user.services.UserService
+import com.rmp.user.services.StepsService
 import org.kodein.di.instance
 import org.kodein.di.DI
 
 class UserStepsUpdateFsm(di: DI): Fsm("update-user-steps", di) {
-    private val userService: UserService by instance()
+    private val stepService: StepsService by instance()
 
     override fun Fsm.registerStates() {
         on(UserStepsUpdateEventState.INIT) {
-            userService.updateSteps(this)
+            stepService.updateStepsTarget(this)
         }
     }
 }

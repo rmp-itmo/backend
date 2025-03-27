@@ -20,6 +20,8 @@ data class UserOutputDto(
     val caloriesStreak: Int,
     val nickName: String,
     val stepsTarget: Int,
+    val stepsCount: Int,
+    val heartRate: Int?,
     val waterCoefficient: Float? = null,
     val caloriesCoefficient: Float? = null,
     val goalCoefficient: Float? = null,

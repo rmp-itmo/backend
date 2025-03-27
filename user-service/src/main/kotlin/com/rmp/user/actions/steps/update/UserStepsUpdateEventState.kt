@@ -1,4 +1,4 @@
-package com.rmp.user.actions.update.steps
+package com.rmp.user.actions.steps.update
 
 enum class UserStepsUpdateEventState {
     INIT
