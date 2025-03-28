@@ -30,8 +30,8 @@ import org.kodein.di.DI
 class DietLogService(di: DI): FsmService(di, AppConf.redis.diet) {
     // Water Log //
     suspend fun uploadWater(redisEvent: RedisEvent) {
-        val user = redisEvent.authorizedUser ?: throw Exception("Bad user")
-        val data = redisEvent.parseData<WaterLogUploadDto>() ?: throw Exception("Bad data")
+        val user = redisEvent.authorizedUser ?: throw ForbiddenException()
+        val data = redisEvent.parseData<WaterLogUploadDto>() ?: throw BadRequestException("Bad data provided")
         if (data.volume < 0) throw Exception("Bad water volume provided")
 
         val inserted = newAutoCommitTransaction(redisEvent) {
