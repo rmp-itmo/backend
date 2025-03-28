@@ -1,5 +1,6 @@
 package com.rmp.diet
 
+import com.rmp.diet.actions.dish.fetch.DishFetchFsm
 import com.rmp.diet.actions.dish.log.DishLogFsm
 import com.rmp.diet.actions.dish.log.MenuHistoryFsm
 import com.rmp.diet.actions.dish.service.create.DishServiceCreateFsm
@@ -58,6 +59,7 @@ fun main() {
                 fsm(GetUserMenuFsm(it))
                 fsm(DailyTargetSetFsm(it))
                 fsm(WaterGetHistoryFsm(it))
+                fsm(DishFetchFsm(it))
             }
         }
     }

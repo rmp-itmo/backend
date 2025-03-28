@@ -9,6 +9,7 @@ import com.rmp.lib.shared.modules.dish.UserMenuItem
 import com.rmp.lib.shared.modules.dish.UserMenuModel
 import com.rmp.lib.shared.modules.paprika.CacheModel
 import com.rmp.lib.shared.modules.paprika.CacheToDishModel
+import com.rmp.lib.shared.modules.sleep.SleepQualityModel
 import com.rmp.lib.shared.modules.user.*
 import com.rmp.lib.utils.kodein.bindSingleton
 import com.rmp.lib.utils.korm.DbType
@@ -41,9 +42,11 @@ fun main() {
     TableRegister.register(DbType.PGSQL, CacheModel, CacheToDishModel)
     TableRegister.register(DbType.PGSQL, DietDishLogModel, DietWaterLogModel)
     TableRegister.register(DbType.PGSQL, UserMenuModel, UserMenuItem)
+    TableRegister.register(DbType.PGSQL, SleepQualityModel)
     TableRegister.register(DbType.PGSQL, UserSleepModel)
     TableRegister.register(DbType.PGSQL, UserHeartLogModel)
     TableRegister.register(DbType.PGSQL, UserStepsLogModel)
+    TableRegister.register(DbType.PGSQL, UserStreakRecordModel)
 
     TransactionManager.initTables(
         forceRecreate = true,
