@@ -31,4 +31,7 @@ object UserModel: IdTable("user_model") {
     val stepsStreak = int("steps_streak").default(0)
 
     val sleepStreak = int("sleep_streak").default(0)
+
+    val subsCount = long("subs_count").default(0)
+    val registrationDate = int("registration_date")
 }

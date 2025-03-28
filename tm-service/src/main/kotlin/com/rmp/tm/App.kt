@@ -7,6 +7,9 @@ import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.shared.modules.dish.DishTypeModel
 import com.rmp.lib.shared.modules.dish.UserMenuItem
 import com.rmp.lib.shared.modules.dish.UserMenuModel
+import com.rmp.lib.shared.modules.forum.PostModel
+import com.rmp.lib.shared.modules.forum.UserSubsModel
+import com.rmp.lib.shared.modules.forum.UserUpvoteModel
 import com.rmp.lib.shared.modules.paprika.CacheModel
 import com.rmp.lib.shared.modules.paprika.CacheToDishModel
 import com.rmp.lib.shared.modules.sleep.SleepQuality
@@ -50,6 +53,7 @@ fun main() {
     TableRegister.register(DbType.PGSQL, UserStepsLogModel)
     TableRegister.register(DbType.PGSQL, UserAchievementsModel)
     TableRegister.register(DbType.PGSQL, GraphCacheModel)
+    TableRegister.register(DbType.PGSQL, UserSubsModel, PostModel, UserUpvoteModel)
 
     TransactionManager.initTables(
         forceRecreate = true,
@@ -109,6 +113,7 @@ fun main() {
             it[age] = 25
             it[nickname] = "nickname"
             it[stepsTarget] = 6000
+            it[registrationDate] = 20230304
         }.named("insert-base-user")
 
         this add UserAchievementsModel.insert {
@@ -178,7 +183,7 @@ fun main() {
                         val sender = event.from
 
                         pubSubService.publish(
-                            event.mutateData(queryResult, queryResult.tid ?: event.tid),
+                            event.mutateData(queryResult, queryResult.tid),
                             sender
                         )
                     }
