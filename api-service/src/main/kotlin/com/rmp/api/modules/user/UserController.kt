@@ -55,6 +55,9 @@ class UserController(override val di: DI) : KodeinController() {
                         post("menu") {
                             call.process("menu-history", AppConf.redis.diet)
                         }
+                        post("summary") {
+                            call.process("user-summary", AppConf.redis.user)
+                        }
                     }
 
                     route("log") {

@@ -2,6 +2,7 @@ application {
   isDebug = true // true/false
   fileLocation = ""
   zoneOffset = 3
+  sleepTarget = 8
 
   jwt {
     domain = "localhost" //Domain to create JWT on
