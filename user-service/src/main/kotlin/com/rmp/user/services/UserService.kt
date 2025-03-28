@@ -369,7 +369,6 @@ class UserService(di: DI): FsmService(di) {
         )
         val percentage = countPercentage(redisEvent, items, usersCount[UserModel.entityCount])
 
-        //TODO: Изменить для сна
         val currentStreaks = userData.unwrap(UserAchievementsModel)
         val updated = (userData[UserModel.caloriesStreak] > userData[UserAchievementsModel.calories]) ||
                 (userData[UserModel.waterStreak] > userData[UserAchievementsModel.water]) ||
@@ -385,8 +384,8 @@ class UserService(di: DI): FsmService(di) {
         if (userData[UserModel.stepsStreak] > userData[UserAchievementsModel.steps]) {
             currentStreaks[UserAchievementsModel.steps] = userData[UserModel.stepsStreak]
         }
-        if (userData[UserModel.caloriesStreak] > userData[UserAchievementsModel.calories]) {
-            currentStreaks[UserAchievementsModel.calories] = userData[UserModel.caloriesStreak]
+        if (userData[UserModel.sleepStreak] > userData[UserAchievementsModel.sleep]) {
+            currentStreaks[UserAchievementsModel.sleep] = userData[UserModel.sleepStreak]
         }
 
         if (updated) newAutoCommitTransaction(redisEvent) { this add UserAchievementsModel.update(currentStreaks) }
@@ -407,11 +406,10 @@ class UserService(di: DI): FsmService(di) {
                 max = currentStreaks[UserAchievementsModel.steps],
                 percentage = percentage[UserAchievementsModel.steps]!!
             ),
-            //TODO: Изменить чтобы выводило стрик по сну
             sleep = AchievementDto(
-                current = userData[UserModel.caloriesStreak],
-                max = currentStreaks[UserAchievementsModel.calories],
-                percentage = percentage[UserAchievementsModel.calories]!!
+                current = userData[UserModel.sleepStreak],
+                max = currentStreaks[UserAchievementsModel.sleep],
+                percentage = percentage[UserAchievementsModel.sleep]!!
             ),
         )
 
