@@ -17,6 +17,7 @@ import com.rmp.lib.shared.dto.DishLogCheckDto
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.korm.Row
 import com.rmp.lib.utils.korm.column.eq
+import com.rmp.lib.utils.korm.column.inList
 import com.rmp.lib.utils.korm.insert
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
@@ -28,8 +29,9 @@ class MenuService(di: DI) : FsmService(di) {
 
     suspend fun setMenu(redisEvent: RedisEvent) {
         val state = redisEvent.parseData<MenuInputDto>() ?: throw BadRequestException("Bad data provided")
+        val providedDishes = state.meals.map { it.dishes }.flatten()
 
-        newTransaction(redisEvent) {
+        val dishes = newTransaction(redisEvent) {
             this add UserMenuItem.delete(
                 UserMenuItem.userId eq redisEvent.authorizedUser!!.id
             )
@@ -37,7 +39,12 @@ class MenuService(di: DI) : FsmService(di) {
             this add UserMenuModel.delete(
                 UserMenuModel.userId eq redisEvent.authorizedUser!!.id
             )
-        }
+
+            this add DishModel.select().where { DishModel.id inList providedDishes }.count("dishes")
+        }["dishes"]?.firstOrNull() ?: throw BadRequestException("Bad dishes provided")
+
+        if (providedDishes.size > dishes[DishModel.entityCount]) throw BadRequestException("Bad dishes provided")
+
 
         val insertedMenu = transaction(redisEvent) {
             this add UserMenuModel.batchInsert(state.meals) { it, idx ->

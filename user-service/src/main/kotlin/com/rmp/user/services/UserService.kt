@@ -352,7 +352,7 @@ class UserService(di: DI): FsmService(di) {
         val userData = newAutoCommitTransaction(redisEvent) {
             this add UserAchievementsModel
                         .select(
-                            UserModel.caloriesStreak, UserModel.waterStreak, UserModel.stepsStreak,
+                            UserModel.caloriesStreak, UserModel.waterStreak, UserModel.stepsStreak, UserModel.sleepStreak,
                             UserAchievementsModel.id, UserAchievementsModel.calories, UserAchievementsModel.water, UserAchievementsModel.sleep, UserAchievementsModel.steps
                         )
                         .join(UserModel)

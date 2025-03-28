@@ -64,8 +64,13 @@ class GraphService(di: DI) : FsmService(di, AppConf.redis.stat) {
             date to point
         }.toMap()
 
+        if (sum == 0.0 || data.isEmpty()) {
+            highest = 0.0
+            lowest = 0.0
+        }
+
         return GraphOutputDto(
-            sum / data.size,
+            if (sum != 0.0 && data.isNotEmpty()) sum / data.size else 0.0,
             highest,
             lowest,
             data
