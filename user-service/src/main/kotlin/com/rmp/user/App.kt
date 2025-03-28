@@ -18,6 +18,8 @@ import com.rmp.user.actions.sleep.set.SetSleepFsm
 import com.rmp.user.actions.update.calories.UserUpdateCurrentCaloriesFsm
 import com.rmp.user.actions.steps.log.StepsLogFsm
 import com.rmp.user.actions.steps.update.UserStepsUpdateFsm
+import com.rmp.user.actions.summary.UserSummaryFsm
+import com.rmp.user.actions.target.UserTargetCheckFsm
 import com.rmp.user.actions.update.user.UserUpdateFsm
 import com.rmp.user.services.HeartService
 import com.rmp.user.services.SleepService
@@ -51,6 +53,8 @@ fun main() {
 
                 fsm(StepsLogFsm(it))
                 fsm(HeartLogFsm(it))
+                fsm(UserSummaryFsm(it))
+                fsm(UserTargetCheckFsm(it))
             }
         }
     }

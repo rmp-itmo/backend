@@ -3,10 +3,15 @@ package com.rmp.user.services
 import com.rmp.lib.exceptions.BadRequestException
 import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.exceptions.InternalServerException
+import com.rmp.lib.shared.conf.AppConf
+import com.rmp.lib.shared.dto.target.TargetCheckSupportDto
 import com.rmp.lib.shared.modules.user.UserModel
+import com.rmp.lib.shared.modules.user.UserStepsLogModel
 import com.rmp.lib.utils.korm.column.eq
+import com.rmp.lib.utils.korm.insert
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
+import com.rmp.user.actions.target.UserTargetCheckEventState
 import com.rmp.user.dto.UserCreateOutputDto
 import com.rmp.user.dto.UserStepsUpdateDto
 import com.rmp.user.dto.steps.StepsDto
@@ -54,5 +59,30 @@ class StepsService(di: DI): FsmService(di) {
         if (count == null || count < 1) throw InternalServerException("Failed to update")
 
         redisEvent.switchOnApi(UserCreateOutputDto(user.id))
+    }
+
+    suspend fun checkTarget(redisEvent: RedisEvent) {
+        val authorizedUser = redisEvent.authorizedUser ?: throw ForbiddenException()
+        val data = redisEvent.parseData<TargetCheckSupportDto>() ?: throw InternalServerException("Bad data provided")
+
+        val select = newTransaction(redisEvent) {
+            this add UserModel
+                .select(UserModel.stepsCount)
+                .where { UserModel.id eq authorizedUser.id }
+        }[UserModel]?.firstOrNull() ?: throw InternalServerException("Failed to fetch steps count")
+
+        val steps = select[UserModel.stepsCount]
+        data.result.steps = data.targets.third < steps
+
+        newAutoCommitTransaction(redisEvent) {
+            this add UserStepsLogModel
+                .insert {
+                    it[user] = authorizedUser.id
+                    it[count] = steps
+                    it[date] = data.timestamp
+                }.named("insert-steps-log")
+        }["insert-steps-log"]?.firstOrNull() ?: throw InternalServerException("Insert failed")
+
+        redisEvent.switchOn(data, AppConf.redis.diet, redisEvent.mutate(UserTargetCheckEventState.UPDATE_STREAKS))
     }
 }

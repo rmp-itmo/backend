@@ -22,6 +22,8 @@ data class UserOutputDto(
     val stepsTarget: Int,
     val stepsCount: Int,
     val heartRate: Int?,
+    val waterCurrent: Double,
+    val caloriesCurrent: Double,
     val waterCoefficient: Float? = null,
     val caloriesCoefficient: Float? = null,
     val goalCoefficient: Float? = null,

@@ -3,10 +3,7 @@ package com.rmp.user.services
 import com.rmp.lib.exceptions.*
 import com.rmp.lib.shared.dto.CurrentCaloriesOutputDto
 import com.rmp.lib.shared.dto.DishLogCheckDto
-import com.rmp.lib.shared.modules.user.UserActivityLevelModel
-import com.rmp.lib.shared.modules.user.UserGoalTypeModel
-import com.rmp.lib.shared.modules.user.UserHeartLogModel
-import com.rmp.lib.shared.modules.user.UserModel
+import com.rmp.lib.shared.modules.user.*
 import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.insert
 import com.rmp.lib.utils.korm.references.JoinType
@@ -15,7 +12,10 @@ import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
 import com.rmp.lib.utils.security.bcrypt.CryptoUtil
 import com.rmp.user.dto.*
+import com.rmp.user.dto.sleep.UserSleepDto
+import com.rmp.user.dto.summary.UserSummaryOutputDto
 import org.kodein.di.DI
+import kotlin.math.round
 
 class UserService(di: DI): FsmService(di) {
     suspend fun createUser(redisEvent: RedisEvent) {
@@ -242,7 +242,7 @@ class UserService(di: DI): FsmService(di) {
                     UserModel.id, UserModel.name, UserModel.email, UserModel.age, UserModel.height,
                     UserModel.weight, UserModel.isMale, UserModel.caloriesStreak, UserModel.waterStreak,
                     UserModel.caloriesTarget, UserModel.waterTarget, UserModel.nickname, UserModel.stepsTarget,
-                    UserModel.stepsCount,
+                    UserModel.stepsCount, UserModel.waterCurrent, UserModel.caloriesCurrent,
                     UserActivityLevelModel.name, UserActivityLevelModel.caloriesCoefficient,
                     UserActivityLevelModel.waterCoefficient, UserGoalTypeModel.name,
                     UserGoalTypeModel.coefficient
@@ -266,7 +266,7 @@ class UserService(di: DI): FsmService(di) {
             select[UserModel.nickname],
             select[UserModel.stepsTarget],
             select[UserModel.stepsCount],
-            heartRate,
+            heartRate, select[UserModel.waterCurrent], select[UserModel.caloriesCurrent],
             waterCoefficient = if (!isOutput) select[UserActivityLevelModel.waterCoefficient] else null,
             caloriesCoefficient = if (!isOutput) select[UserActivityLevelModel.caloriesCoefficient] else null,
             goalCoefficient = if (!isOutput) select[UserGoalTypeModel.coefficient] else null
@@ -312,5 +312,29 @@ class UserService(di: DI): FsmService(di) {
         Logger.debug(updated!!.first()[UserModel.updateCount])
 
         redisEvent.switchOnApi(CurrentCaloriesOutputDto(newCalories))
+    }
+
+    suspend fun getUserSummary(redisEvent: RedisEvent) {
+        val authorizedUser = redisEvent.authorizedUser ?: throw ForbiddenException()
+        val data = redisEvent.parseData<UserSleepDto>() ?: throw InternalServerException("Bad data provided")
+
+        val user = getUserInfo(redisEvent, authorizedUser.id, isOutput = true)
+
+        val glasses = round(user.waterCurrent / (user.waterTarget / 8))
+
+        redisEvent.switchOnApi(
+            UserSummaryOutputDto(
+                caloriesTarget = user.caloriesTarget,
+                caloriesCurrent = user.caloriesCurrent,
+                waterTarget = user.waterTarget,
+                waterCurrent = user.waterCurrent,
+                stepsTarget = user.stepsTarget,
+                stepsCurrent = user.stepsCount,
+                sleepHours = data.hours,
+                sleepMinutes = data.minutes,
+                heartRate = user.heartRate,
+                glassesOfWater = glasses
+            )
+        )
     }
 }
