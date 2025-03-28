@@ -1,6 +1,9 @@
 package com.rmp.user
 
 import com.rmp.lib.shared.conf.AppConf
+import com.rmp.lib.shared.modules.training.TrainingIntensityModel
+import com.rmp.lib.shared.modules.training.TrainingTypeModel
+import com.rmp.lib.shared.modules.training.UserTrainingLogModel
 import com.rmp.lib.shared.modules.user.*
 import com.rmp.lib.utils.kodein.bindSingleton
 import com.rmp.lib.utils.korm.DbType
@@ -22,10 +25,11 @@ import com.rmp.user.actions.steps.update.UserStepsUpdateFsm
 import com.rmp.user.actions.update.UserUpdateFsm
 import com.rmp.user.actions.summary.UserSummaryFsm
 import com.rmp.user.actions.target.UserTargetCheckFsm
-import com.rmp.user.services.HeartService
-import com.rmp.user.services.SleepService
-import com.rmp.user.services.StepsService
-import com.rmp.user.services.UserService
+import com.rmp.user.actions.training.get.TrainingIntensiveGetFsm
+import com.rmp.user.actions.training.get.TrainingTypeGetFsm
+import com.rmp.user.actions.training.get.TrainingsGetFsm
+import com.rmp.user.actions.training.log.TrainingLogFsm
+import com.rmp.user.services.*
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -40,6 +44,7 @@ fun main() {
         bindSingleton { SleepService(it) }
         bindSingleton { StepsService(it) }
         bindSingleton { HeartService(it) }
+        bindSingleton { TrainingService(it) }
 
 
         bindSingleton {
@@ -58,6 +63,12 @@ fun main() {
                 fsm(GetAchievementsFsm(it))
                 fsm(UserSummaryFsm(it))
                 fsm(UserTargetCheckFsm(it))
+
+                // Trainings
+                fsm(TrainingLogFsm(it))
+                fsm(TrainingTypeGetFsm(it))
+                fsm(TrainingIntensiveGetFsm(it))
+                fsm(TrainingsGetFsm(it))
             }
         }
     }
@@ -67,7 +78,8 @@ fun main() {
         UserModel, UserGoalTypeModel,
         UserActivityLevelModel, UserSleepModel,
         UserHeartLogModel, UserStepsLogModel,
-        UserAchievementsModel
+        UserAchievementsModel, TrainingTypeModel, TrainingIntensityModel,
+        UserTrainingLogModel
     )
 
     val router by kodein.instance<FsmRouter>()
