@@ -73,7 +73,7 @@ class CacheService(di: DI) : FsmService(di) {
                 this add CacheModel.update(CacheModel.id inList ids) {
                     CacheModel.useTimesFromCreation += 1
                     CacheModel.useTimesFromLastScrap += 1
-                }.named("update-exist")
+                }
 
             if (newCache.isNotEmpty())
                 this add CacheModel.batchInsert(newCache) { it, _ ->

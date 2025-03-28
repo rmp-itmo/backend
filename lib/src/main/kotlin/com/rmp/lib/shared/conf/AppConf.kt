@@ -18,4 +18,6 @@ object AppConf {
     val logger: LoggerConf = mainConfig.extract<LoggerConf>("application.loggerConf")
 
     val zoneOffset: Int = mainConfig.getValue("application.zoneOffset").unwrapped().toString().toInt()
+
+    val sleepTarget: Int = mainConfig.getValue("application.sleepTarget").unwrapped().toString().toInt()
 }

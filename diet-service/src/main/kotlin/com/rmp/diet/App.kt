@@ -1,13 +1,18 @@
 package com.rmp.diet
 
+import com.rmp.diet.actions.dish.fetch.DishFetchFsm
 import com.rmp.diet.actions.dish.log.DishLogFsm
+import com.rmp.diet.actions.dish.log.MenuHistoryFsm
 import com.rmp.diet.actions.dish.service.create.DishServiceCreateFsm
 import com.rmp.diet.actions.dish.service.get.DishServiceGetAllFsm
 import com.rmp.diet.actions.target.check.DailyTargetCheckFsm
 import com.rmp.diet.actions.target.set.DailyTargetSetFsm
 import com.rmp.diet.actions.user.menu.get.GetUserMenuFsm
 import com.rmp.diet.actions.user.menu.set.SetUserMenuFsm
-import com.rmp.diet.actions.water.WaterLogFsm
+import com.rmp.diet.actions.user.menu.set.AddMenuItemFsm
+import com.rmp.diet.actions.user.menu.set.RemoveMenuItemFsm
+import com.rmp.diet.actions.water.get.WaterGetHistoryFsm
+import com.rmp.diet.actions.water.log.WaterLogFsm
 import com.rmp.diet.services.*
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.modules.diet.DietDishLogModel
@@ -36,10 +41,9 @@ fun main() {
     val kodein = DI {
         bindSingleton { PubSubService(AppConf.redis.diet, it) }
         bindSingleton { DietLogService(it) }
-        bindSingleton { DietTargetCheckService(it) }
         bindSingleton { DishService(it) }
         bindSingleton { MenuService(it) }
-        bindSingleton { DailyTargetSetService(it) }
+        bindSingleton { DailyTargetService(it) }
 
         bindSingleton {
             FsmRouter.routing(AppConf.redis.diet, it) {
@@ -49,8 +53,13 @@ fun main() {
                 fsm(DishServiceCreateFsm(it))
                 fsm(DishServiceGetAllFsm(it))
                 fsm(SetUserMenuFsm(it))
+                fsm(AddMenuItemFsm(it))
+                fsm(RemoveMenuItemFsm(it))
+                fsm(MenuHistoryFsm(it))
                 fsm(GetUserMenuFsm(it))
                 fsm(DailyTargetSetFsm(it))
+                fsm(WaterGetHistoryFsm(it))
+                fsm(DishFetchFsm(it))
             }
         }
     }

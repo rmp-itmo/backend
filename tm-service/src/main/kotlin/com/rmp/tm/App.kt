@@ -9,10 +9,10 @@ import com.rmp.lib.shared.modules.dish.UserMenuItem
 import com.rmp.lib.shared.modules.dish.UserMenuModel
 import com.rmp.lib.shared.modules.paprika.CacheModel
 import com.rmp.lib.shared.modules.paprika.CacheToDishModel
-import com.rmp.lib.shared.modules.user.UserActivityLevelModel
-import com.rmp.lib.shared.modules.user.UserGoalTypeModel
-import com.rmp.lib.shared.modules.user.UserLoginModel
-import com.rmp.lib.shared.modules.user.UserModel
+import com.rmp.lib.shared.modules.sleep.SleepQuality
+import com.rmp.lib.shared.modules.sleep.SleepQualityModel
+import com.rmp.lib.shared.modules.stat.GraphCacheModel
+import com.rmp.lib.shared.modules.user.*
 import com.rmp.lib.utils.kodein.bindSingleton
 import com.rmp.lib.utils.korm.DbType
 import com.rmp.lib.utils.korm.TableRegister
@@ -44,6 +44,12 @@ fun main() {
     TableRegister.register(DbType.PGSQL, CacheModel, CacheToDishModel)
     TableRegister.register(DbType.PGSQL, DietDishLogModel, DietWaterLogModel)
     TableRegister.register(DbType.PGSQL, UserMenuModel, UserMenuItem)
+    TableRegister.register(DbType.PGSQL, SleepQualityModel)
+    TableRegister.register(DbType.PGSQL, UserSleepModel)
+    TableRegister.register(DbType.PGSQL, UserHeartLogModel)
+    TableRegister.register(DbType.PGSQL, UserStepsLogModel)
+    TableRegister.register(DbType.PGSQL, UserAchievementsModel)
+    TableRegister.register(DbType.PGSQL, GraphCacheModel)
 
     TransactionManager.initTables(
         forceRecreate = true,
@@ -105,6 +111,18 @@ fun main() {
             it[stepsTarget] = 6000
         }.named("insert-base-user")
 
+        this add UserAchievementsModel.insert {
+            it[userId] = 1
+            it[water] = 1
+            it[calories] = 1
+            it[sleep] = 1
+            it[steps] = 1
+        }.named("streaks")
+
+        this add SleepQualityModel.batchInsert(SleepQuality.entries) { item, idx ->
+            this[SleepQualityModel.id] = idx + 1L
+            this[SleepQualityModel.name] = item.name
+        }.named("add-sleep-quality")
 
     }
 

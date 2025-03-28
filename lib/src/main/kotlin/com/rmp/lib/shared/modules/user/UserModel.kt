@@ -23,4 +23,12 @@ object UserModel: IdTable("user_model") {
 
     val nickname = text("nickname")
     val stepsTarget = int("steps_target")
+
+    val waterCurrent = double("water_current").default(0.0)
+    val caloriesCurrent = double("calories_current").default(0.0)
+
+    val stepsCount = int("steps_count").default(0)
+    val stepsStreak = int("steps_streak").default(0)
+
+    val sleepStreak = int("sleep_streak").default(0)
 }

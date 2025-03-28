@@ -50,7 +50,17 @@ open class PubSubService(val serviceName: String, di: DI) : KodeinService(di) {
                         val (initiator, deferred) = pendingDbRequests.getValue(item.id)
                         initiator.tid = item.value.tid
                         Logger.debug("DB RESPONSE RECEIVED: ${item.value}")
-                        deferred.complete(item.value.parseDb())
+
+                        val result = try {
+                            item.value.parseDb()
+                        } catch (e: Exception) {
+                            Logger.debugException("Failed to parse db response", e, "db")
+                            null
+                        }
+
+                        if (result == null) deferred.complete(DbResponseData(mutableMapOf()))
+                        else deferred.complete(result)
+
                         pendingDbRequests -= item.id
                     }
                 }

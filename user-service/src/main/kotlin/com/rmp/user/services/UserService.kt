@@ -1,22 +1,29 @@
 package com.rmp.user.services
 
-import com.rmp.lib.exceptions.BadRequestException
-import com.rmp.lib.exceptions.DuplicateEntityException
-import com.rmp.lib.exceptions.ForbiddenException
-import com.rmp.lib.exceptions.InternalServerException
-import com.rmp.lib.shared.modules.user.UserActivityLevelModel
-import com.rmp.lib.shared.modules.user.UserGoalTypeModel
-import com.rmp.lib.shared.modules.user.UserModel
+import com.rmp.lib.exceptions.*
+import com.rmp.lib.shared.dto.CurrentCaloriesOutputDto
+import com.rmp.lib.shared.dto.DishLogCheckDto
+import com.rmp.lib.shared.modules.user.*
+import com.rmp.lib.utils.korm.column.Column
 import com.rmp.lib.utils.korm.column.eq
+import com.rmp.lib.utils.korm.column.less
 import com.rmp.lib.utils.korm.insert
 import com.rmp.lib.utils.korm.references.JoinType
+import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
 import com.rmp.lib.utils.security.bcrypt.CryptoUtil
 import com.rmp.user.dto.*
+import com.rmp.user.dto.sleep.UserSleepDto
+import com.rmp.user.dto.summary.UserSummaryOutputDto
+import com.rmp.user.dto.streaks.AchievementsOutputDto
+import com.rmp.user.dto.streaks.AchievementDto
 import org.kodein.di.DI
+import kotlin.math.roundToInt
+import kotlin.math.round
 
 class UserService(di: DI): FsmService(di) {
+
     suspend fun createUser(redisEvent: RedisEvent) {
         val data = redisEvent.parseData<UserCreateInputDto>() ?: throw BadRequestException("Invalid data provided")
 
@@ -51,7 +58,7 @@ class UserService(di: DI): FsmService(di) {
             activityCoefficients[UserActivityLevelModel.waterCoefficient]
         )
 
-        val user = newAutoCommitTransaction(redisEvent) {
+        val user = newTransaction(redisEvent) {
             this add UserModel
                 .insert {
                     it[name] = data.name
@@ -69,16 +76,26 @@ class UserService(di: DI): FsmService(di) {
                 }.named("insert-user")
         }["insert-user"]?.firstOrNull() ?: throw InternalServerException("Insert failed")
 
-        newAutoCommitTransaction(redisEvent) {
+        val update = autoCommitTransaction(redisEvent) {
             this add UserModel
                 .update(UserModel.id eq user[UserModel.id]) {
                     UserModel.nickname.set("${data.name}-${user[UserModel.id]}")
-                }.named("insert-user-nickname")
+                }
+            this add UserAchievementsModel
+                .insert {
+                    it[userId] = user[UserModel.id]
+                    it[sleep] = 0
+                    it[steps] = 0
+                    it[UserAchievementsModel.water] = 0
+                    it[UserAchievementsModel.calories] = 0
+                }.named("insert-streak-row")
         }
+
+        val count = update[UserModel]?.firstOrNull()?.get(UserModel.updateCount)
+        if (count == null || count < 1) throw InternalServerException("Failed to update")
 
         redisEvent.switchOnApi(UserCreateOutputDto(user[UserModel.id]))
     }
-
 
     private fun calculateTargets(
         isMale: Boolean,
@@ -110,7 +127,7 @@ class UserService(di: DI): FsmService(di) {
         }[UserModel]?.firstOrNull()
 
         if (user != null) {
-            throw DuplicateEntityException("User already exists")
+            throw DoubleRecordException("User already exists")
         }
     }
 
@@ -190,7 +207,7 @@ class UserService(di: DI): FsmService(di) {
             activityTypeSelect!![UserActivityLevelModel.id]
         }
 
-        newAutoCommitTransaction(redisEvent) {
+        val update = newAutoCommitTransaction(redisEvent) {
             this add UserModel
                 .update(UserModel.id eq authUser.id) {
                     UserModel.name.set(data.name?: userData.name)
@@ -208,8 +225,11 @@ class UserService(di: DI): FsmService(di) {
                     }
                     UserModel.activityLevel.set(activity)
                     UserModel.goalType.set(goal)
-                }.named("update-user")
+                }
         }
+
+        val count = update[UserModel]?.firstOrNull()?.get(UserModel.updateCount)
+        if (count == null || count < 1) throw InternalServerException("Failed to update")
 
         redisEvent.switchOnApi(UserCreateOutputDto(authUser.id))
     }
@@ -222,23 +242,10 @@ class UserService(di: DI): FsmService(di) {
                 .where { UserModel.nickname eq nick }
         }[UserModel]?.firstOrNull()
         if (user != null) {
-            throw DuplicateEntityException("This nickname already in use")
+            throw DoubleRecordException("This nickname already in use")
         } else {
             return true
         }
-    }
-
-    suspend fun updateSteps(redisEvent: RedisEvent) {
-        val user = redisEvent.authorizedUser?: throw ForbiddenException()
-        val stepsDto = redisEvent.parseData<UserStepsUpdateDto>() ?: throw BadRequestException("Invalid steps value provided")
-
-        newAutoCommitTransaction(redisEvent) {
-            this add UserModel
-            .update(UserModel.id eq user.id) {
-                UserModel.stepsTarget.set(stepsDto.steps)
-            }.named("update-user-steps")
-        }
-        redisEvent.switchOnApi(UserCreateOutputDto(user.id))
     }
 
     private suspend fun getUserInfo(redisEvent: RedisEvent, id: Long, isOutput: Boolean): UserOutputDto {
@@ -248,6 +255,7 @@ class UserService(di: DI): FsmService(di) {
                     UserModel.id, UserModel.name, UserModel.email, UserModel.age, UserModel.height,
                     UserModel.weight, UserModel.isMale, UserModel.caloriesStreak, UserModel.waterStreak,
                     UserModel.caloriesTarget, UserModel.waterTarget, UserModel.nickname, UserModel.stepsTarget,
+                    UserModel.stepsCount, UserModel.waterCurrent, UserModel.caloriesCurrent,
                     UserActivityLevelModel.name, UserActivityLevelModel.caloriesCoefficient,
                     UserActivityLevelModel.waterCoefficient, UserGoalTypeModel.name,
                     UserGoalTypeModel.coefficient
@@ -255,6 +263,12 @@ class UserService(di: DI): FsmService(di) {
                 .join(UserActivityLevelModel, JoinType.INNER, UserActivityLevelModel.id eq UserModel.activityLevel)
                 .join(UserGoalTypeModel, JoinType.INNER, UserGoalTypeModel.id eq UserModel.goalType)
         }[UserModel]?.firstOrNull() ?: throw BadRequestException("User does not exist")
+
+        val heartRate = newAutoCommitTransaction(redisEvent) {
+            this add UserHeartLogModel
+                .select(UserHeartLogModel.heartRate)
+                .where { UserHeartLogModel.user eq id }
+        }[UserHeartLogModel]?.lastOrNull()?.get(UserHeartLogModel.heartRate)
 
         return UserOutputDto(
             select[UserModel.id], select[UserModel.name], select[UserModel.email],
@@ -264,6 +278,8 @@ class UserService(di: DI): FsmService(di) {
             select[UserModel.waterStreak], select[UserModel.caloriesStreak],
             select[UserModel.nickname],
             select[UserModel.stepsTarget],
+            select[UserModel.stepsCount],
+            heartRate, select[UserModel.waterCurrent], select[UserModel.caloriesCurrent],
             waterCoefficient = if (!isOutput) select[UserActivityLevelModel.waterCoefficient] else null,
             caloriesCoefficient = if (!isOutput) select[UserActivityLevelModel.caloriesCoefficient] else null,
             goalCoefficient = if (!isOutput) select[UserGoalTypeModel.coefficient] else null
@@ -276,5 +292,151 @@ class UserService(di: DI): FsmService(di) {
         val userData = getUserInfo(redisEvent, user.id, true)
 
         redisEvent.switchOnApi(userData)
+    }
+
+    suspend fun updateCalories(redisEvent: RedisEvent) {
+        // Internal exception по причине того что этот метод вызывается исключительно изнутри (DishService.addMenuItem \ .uploadDish),
+        // и если сюда пришло плохое тело - наша ошибка, а не клиента
+        val user = redisEvent.authorizedUser ?: throw InternalServerException("Bad request")
+        val data = redisEvent.parseData<DishLogCheckDto>() ?: throw InternalServerException("Bad request")
+
+        // Продолжаем старую транзакцию открытую при изменении состояния меню в DishService
+        val userData = transaction(redisEvent) {
+            this add UserModel.select(UserModel.caloriesCurrent).where {
+                UserModel.id eq user.id
+            }
+        }[UserModel]?.firstOrNull() ?: throw InternalServerException("Failed to fetch user")
+
+        val currentCalories = userData[UserModel.caloriesCurrent]
+
+        val newCalories = if (data.check) {
+            currentCalories + data.calories
+        } else {
+            (currentCalories - data.calories).let { if (it < 0) 0.0 else it }
+        }
+
+        val updated = autoCommitTransaction(redisEvent) {
+            this add UserModel.update(UserModel.id eq user.id) {
+                this[UserModel.caloriesCurrent] = newCalories
+            }
+        }[UserModel]
+
+        Logger.debug(updated)
+        Logger.debug(updated!!.first()[UserModel.updateCount])
+
+        redisEvent.switchOnApi(CurrentCaloriesOutputDto(newCalories))
+    }
+
+    private suspend fun countPercentage(redisEvent: RedisEvent, items: List<Pair<Column<Int>, Int>>, countAll: Long): Map<Column<Int>, Int> {
+        val countData = newAutoCommitTransaction(redisEvent) {
+            items.forEachIndexed { idx, (column, value) ->
+                this add UserAchievementsModel.select().where { column less value }.count("count-less-$idx")
+            }
+        }
+
+        val result = items.mapIndexed { index, (column, _) ->
+            val data = countData["count-less-$index"]?.firstOrNull() ?: throw InternalServerException("Count failed")
+            Logger.debug("STREAK ${column.name}")
+            Logger.debug(data[UserAchievementsModel.entityCount])
+            column to ((data[UserAchievementsModel.entityCount].toDouble() / (countAll - 1).toDouble()) * 100).roundToInt()
+        }.toMap()
+
+        return result
+    }
+
+    suspend fun getAchievements(redisEvent: RedisEvent) {
+        val user = redisEvent.authorizedUser ?: throw ForbiddenException()
+
+        val userData = newAutoCommitTransaction(redisEvent) {
+            this add UserAchievementsModel
+                        .select(
+                            UserModel.caloriesStreak, UserModel.waterStreak, UserModel.stepsStreak,
+                            UserAchievementsModel.id, UserAchievementsModel.calories, UserAchievementsModel.water, UserAchievementsModel.sleep, UserAchievementsModel.steps
+                        )
+                        .join(UserModel)
+                        .where { UserModel.id eq user.id }
+        }[UserAchievementsModel]?.firstOrNull() ?: throw InternalServerException("Failed to fetch user")
+
+        val usersCount = newAutoCommitTransaction(redisEvent) {
+            this add UserModel.select().count("count-users")
+        }["count-users"]?.firstOrNull() ?: throw InternalServerException("Count query failed")
+
+        val items = listOf(
+            UserAchievementsModel.calories to userData[UserAchievementsModel.calories],
+            UserAchievementsModel.water to userData[UserAchievementsModel.water],
+            UserAchievementsModel.steps to userData[UserAchievementsModel.steps],
+            UserAchievementsModel.sleep to userData[UserAchievementsModel.sleep],
+        )
+        val percentage = countPercentage(redisEvent, items, usersCount[UserModel.entityCount])
+
+        val currentStreaks = userData.unwrap(UserAchievementsModel)
+        val updated = (userData[UserModel.caloriesStreak] > userData[UserAchievementsModel.calories]) ||
+                (userData[UserModel.waterStreak] > userData[UserAchievementsModel.water]) ||
+                (userData[UserModel.stepsStreak] > userData[UserAchievementsModel.steps]) ||
+                (userData[UserModel.caloriesStreak] > userData[UserAchievementsModel.calories])
+
+        if (userData[UserModel.caloriesStreak] > userData[UserAchievementsModel.calories]) {
+            currentStreaks[UserAchievementsModel.calories] = userData[UserModel.caloriesStreak]
+        }
+        if (userData[UserModel.waterStreak] > userData[UserAchievementsModel.water]) {
+            currentStreaks[UserAchievementsModel.water] = userData[UserModel.waterStreak]
+        }
+        if (userData[UserModel.stepsStreak] > userData[UserAchievementsModel.steps]) {
+            currentStreaks[UserAchievementsModel.steps] = userData[UserModel.stepsStreak]
+        }
+        if (userData[UserModel.sleepStreak] > userData[UserAchievementsModel.sleep]) {
+            currentStreaks[UserAchievementsModel.sleep] = userData[UserModel.sleepStreak]
+        }
+
+        if (updated) newAutoCommitTransaction(redisEvent) { this add UserAchievementsModel.update(currentStreaks) }
+
+        val achievements = AchievementsOutputDto(
+            calories = AchievementDto(
+                current = userData[UserModel.caloriesStreak],
+                max = currentStreaks[UserAchievementsModel.calories],
+                percentage = percentage[UserAchievementsModel.calories]!!
+            ),
+            water = AchievementDto(
+                current = userData[UserModel.waterStreak],
+                max = currentStreaks[UserAchievementsModel.water],
+                percentage = percentage[UserAchievementsModel.water]!!
+            ),
+            steps = AchievementDto(
+                current = userData[UserModel.stepsStreak],
+                max = currentStreaks[UserAchievementsModel.steps],
+                percentage = percentage[UserAchievementsModel.steps]!!
+            ),
+            sleep = AchievementDto(
+                current = userData[UserModel.sleepStreak],
+                max = currentStreaks[UserAchievementsModel.sleep],
+                percentage = percentage[UserAchievementsModel.sleep]!!
+            ),
+        )
+
+        redisEvent.switchOnApi(achievements)
+    }
+
+    suspend fun getUserSummary(redisEvent: RedisEvent) {
+        val authorizedUser = redisEvent.authorizedUser ?: throw ForbiddenException()
+        val data = redisEvent.parseData<UserSleepDto>() ?: throw InternalServerException("Bad data provided")
+
+        val user = getUserInfo(redisEvent, authorizedUser.id, isOutput = true)
+
+        val glasses = round(user.waterCurrent / (user.waterTarget / 8))
+
+        redisEvent.switchOnApi(
+            UserSummaryOutputDto(
+                caloriesTarget = user.caloriesTarget,
+                caloriesCurrent = user.caloriesCurrent,
+                waterTarget = user.waterTarget,
+                waterCurrent = user.waterCurrent,
+                stepsTarget = user.stepsTarget,
+                stepsCurrent = user.stepsCount,
+                sleepHours = data.hours,
+                sleepMinutes = data.minutes,
+                heartRate = user.heartRate,
+                glassesOfWater = glasses
+            )
+        )
     }
 }

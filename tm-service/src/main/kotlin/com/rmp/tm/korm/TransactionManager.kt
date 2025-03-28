@@ -14,6 +14,7 @@ import kotlinx.coroutines.channels.actor
 import java.sql.Connection
 import com.rmp.lib.utils.log.Logger
 import org.postgresql.util.PSQLException
+import java.sql.SQLException
 
 object TransactionManager {
     private lateinit var ds: HikariDataSource
@@ -94,7 +95,7 @@ object TransactionManager {
                     }
                     val newConnection = ds.connection
                     Logger.debug("OPEN NEW CONNECTION $newConnection", "database")
-                    val new = Pair("tid-${System.nanoTime()}", newConnection)
+                    val new = "tid-${System.nanoTime()}" to newConnection
                     active += new
                     new
                 } else {
@@ -112,9 +113,12 @@ object TransactionManager {
                     ExecutionResult(
                         query.queryParseData ?: mutableMapOf(),
                         execute(
+                            connectionName!!,
                             connection,
                             query,
-                            query.queryParseData?.values?.flatten() ?: listOf(),
+                            query.queryParseData?.map {
+                                (tableName, columns) -> columns.map { "\"$tableName\".\"$it\"" }
+                            }?.flatten() ?: listOf(),
                             query.queryType == QueryType.INSERT.value
                         )
                     )
@@ -122,10 +126,11 @@ object TransactionManager {
             }
             QueryType.UPDATE, QueryType.DELETE -> {
                 if (connection == null) return Triple(null, null, null)
+                val queryParseData = query.queryParseData ?: mutableMapOf()
                 Triple(
                     connectionName,
                     connection,
-                    ExecutionResult(query.queryParseData ?: mutableMapOf(), executeNoResult(connection, query))
+                    ExecutionResult(queryParseData, executeNoResult(connectionName!!, connection, query, queryParseData))
                 )
             }
 
@@ -207,8 +212,10 @@ object TransactionManager {
 
     private fun commit(name: String, connection: Connection): List<RowDto> {
         Logger.debug("COMMIT AND CLOSE THE CONNECTION $connection", "database")
-        connection.commit()
-        connection.close()
+        try {
+            connection.commit()
+            connection.close()
+        } catch (_: SQLException) {}
         active.remove(name)
 
         return listOf(RowDto(mutableMapOf("result" to ResultPlaceholder.COMMITED.value)))
@@ -216,23 +223,30 @@ object TransactionManager {
 
     private fun rollback(name: String, connection: Connection): List<RowDto> {
         Logger.debug("ROLLBACK AND CLOSE THE CONNECTION $connection", "database")
-        connection.rollback()
-        connection.close()
+        try {
+            connection.commit()
+            connection.close()
+        } catch (_: SQLException) {}
         active.remove(name)
 
         return listOf(RowDto(mutableMapOf("result" to ResultPlaceholder.ROLLEDBACK.value)))
     }
 
-    private fun execute(connection: Connection, query: QueryDto, columns: List<String>, insert: Boolean = false): List<RowDto> {
+    private fun execute(connectionName: String, connection: Connection, query: QueryDto, columns: List<String>, insert: Boolean = false): List<RowDto> {
         val start = System.currentTimeMillis()
 
         val stmt = query.prepare(connection)
 
-        val rs = if (!insert) stmt.executeQuery()
-                 else {
-                    stmt.executeUpdate()
-                    stmt.generatedKeys
-                 }
+        val rs = try {
+            if (!insert) stmt.executeQuery()
+            else {
+                stmt.executeUpdate()
+                stmt.generatedKeys
+            }
+        } catch (e: Exception) {
+            rollback(connectionName, connection)
+            return emptyList()
+        }
 
         val result = mutableListOf<RowDto>()
         while (rs.next()) {
@@ -244,14 +258,27 @@ object TransactionManager {
         return result
     }
 
-    private fun executeNoResult(connection: Connection, query: QueryDto): List<RowDto> {
+    private fun executeNoResult(connectionName: String, connection: Connection, query: QueryDto, queryParseData: QueryParseData): List<RowDto> {
         val stmt = query.prepare(connection)
 
-        val result = stmt.executeUpdate()
+        val result = try {
+            stmt.executeUpdate()
+        } catch (e: Exception) {
+            if (connectionName != "")
+                rollback(connectionName, connection)
+            else
+                connection.close()
+            throw e
+        }
 
         Logger.debug("$result")
 
-        return listOf(RowDto(mutableMapOf("result" to result)))
+        val tableName = queryParseData.keys.firstOrNull() ?: ""
+
+        return tableName.let {
+            if (it == "") listOf(RowDto(mutableMapOf("result" to result)))
+            else listOf(RowDto(mutableMapOf("\"$it\".\"result\"" to result)))
+        }
     }
 
     fun init(config: HikariConfig.() -> Unit) {
@@ -267,13 +294,15 @@ object TransactionManager {
             val query = table.initTable(dbType = type, forceRecreate = forceRecreate && table !in excludedFromRecreation)
             Logger.debug("Init table ${table.tableName_} - ${query.sql} $connection", "database")
             try {
-                executeNoResult(connection, query)
+                executeNoResult("", connection, query, query.queryParseData ?: mutableMapOf())
             } catch (e: PSQLException) {
                 val relationNotFound = Regex("ERROR: relation \"([^.]*)\" does not exist")
                 val (tableName) = relationNotFound.find(e.message ?: "")?.destructured ?: throw e
                 if (e.message?.matches(relationNotFound) == true) {
-                    connection.rollback()
-                    connection.close()
+                    try {
+                        connection.rollback()
+                        connection.close()
+                    } catch (_: Exception) {}
                     throw Exception("Failed to init table '${table.tableName_}' relation '$tableName' must be created first")
                 } else throw e
             }

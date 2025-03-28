@@ -1,6 +1,7 @@
 package com.rmp.lib.utils.korm
 
 import com.rmp.lib.utils.korm.query.QueryParseData
+import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.redis.SerializableClass
 import com.rmp.lib.utils.serialization.UltimateSerializer
 import kotlinx.serialization.Serializable
@@ -13,6 +14,7 @@ data class RowDto (
     companion object {
         fun build(rs: ResultSet, columns: List<String>): RowDto {
             val row = RowDto()
+            Logger.debug("BUILD ROW DTO OBJECT: $columns")
             columns.forEachIndexed { index, column ->
                 row.serializedData[column] = rs.getObject(index + 1)
             }

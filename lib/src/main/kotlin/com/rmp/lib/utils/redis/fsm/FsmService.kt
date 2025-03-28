@@ -5,6 +5,7 @@ import com.rmp.lib.utils.kodein.KodeinService
 import com.rmp.lib.utils.korm.query.Query
 import com.rmp.lib.utils.korm.query.batch.BatchBuilder
 import com.rmp.lib.utils.redis.*
+import kotlinx.coroutines.*
 import org.kodein.di.DI
 import org.kodein.di.instance
 
@@ -17,7 +18,15 @@ abstract class FsmService(di: DI, val channel: String = "service") : KodeinServi
     ): DbResponseData {
         val id = System.nanoTime()
         pubSubService.publish(forDb(id).mutateData(queryDto), AppConf.redis.db)
-        return pubSubService.regDbRequest(id, this).await()
+        val deferred = pubSubService.regDbRequest(id, this)
+
+        return try {
+            withTimeout(5_000) {
+                deferred.await()
+            }
+        } catch (e: TimeoutCancellationException) {
+            DbResponseData(mutableMapOf())
+        }
     }
 
     suspend inline fun <reified T: SerializableClass> RedisEvent.switchOnApi(

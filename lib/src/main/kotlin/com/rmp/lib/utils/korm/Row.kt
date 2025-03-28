@@ -45,7 +45,7 @@ class Row private constructor() {
             val row = Row()
 
             columns.forEachIndexed { index, column ->
-                row.data[column] = rowDto.serializedData[column.name]
+                row.data[column] = rowDto.serializedData[column.fullQualifiedName]
             }
 
             return row

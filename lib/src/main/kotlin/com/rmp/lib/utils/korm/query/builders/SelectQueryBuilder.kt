@@ -65,13 +65,15 @@ class SelectQueryBuilder<T: Table>(table: T): QueryBuilder(table) {
         if (table !is IdTable) {
             throw Exception("Try joining with table without id")
         }
+
         joins.asReversed().forEach {
             if (it.target.hasRef(target)) {
                 joins += Join(it.target, target, joinType, constraints)
                 return@join this
             }
         }
-        if (table.hasRef(target)) {
+
+        if (table.hasRef(target) || constraints != null) {
             joins += Join(table, target, joinType, constraints)
             return this
         }

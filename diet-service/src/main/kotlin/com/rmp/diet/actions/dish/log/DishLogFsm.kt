@@ -12,9 +12,5 @@ class DishLogFsm(di: DI): Fsm("user-upload-dish-log", di) {
         on(DishLogEventState.INIT) {
             dietLogService.uploadDish(this)
         }
-
-        on(DishLogEventState.LOG_NEW) {
-            dietLogService.logNew(this)
-        }
     }
 }

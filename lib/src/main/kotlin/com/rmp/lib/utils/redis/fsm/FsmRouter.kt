@@ -89,10 +89,23 @@ class FsmRouter(override val di: DI) : DIAware {
                 return
             }
 
+            if (event.tid != null) {
+                fsmService.transaction(event) {
+                    rollback()
+                }
+            } else {
+                // ??????
+                fsmService.newTransaction(event) {
+                    rollback()
+                }
+            }
+
             val superTypeHandler = e::class.superclasses.firstOrNull { it in exceptionHandlers }
 
             if (superTypeHandler != null) {
                 exceptionHandlers[superTypeHandler]?.invoke(event, e)
+            } else {
+                exceptionHandlers[Exception::class]?.invoke(event, e)
             }
         }
     }
