@@ -224,7 +224,7 @@ object TransactionManager {
     private fun rollback(name: String, connection: Connection): List<RowDto> {
         Logger.debug("ROLLBACK AND CLOSE THE CONNECTION $connection", "database")
         try {
-            connection.commit()
+            connection.rollback()
             connection.close()
         } catch (_: SQLException) {}
         active.remove(name)
@@ -244,6 +244,7 @@ object TransactionManager {
                 stmt.generatedKeys
             }
         } catch (e: Exception) {
+            Logger.debugException("Failed to process query", e, "database")
             rollback(connectionName, connection)
             return emptyList()
         }
@@ -264,10 +265,13 @@ object TransactionManager {
         val result = try {
             stmt.executeUpdate()
         } catch (e: Exception) {
+            Logger.debugException("Failed to process query", e, "database")
             if (connectionName != "")
                 rollback(connectionName, connection)
-            else
+            else {
+                connection.rollback()
                 connection.close()
+            }
             throw e
         }
 

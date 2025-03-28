@@ -7,11 +7,17 @@ import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.shared.modules.dish.DishTypeModel
 import com.rmp.lib.shared.modules.dish.UserMenuItem
 import com.rmp.lib.shared.modules.dish.UserMenuModel
+import com.rmp.lib.shared.modules.forum.PostModel
+import com.rmp.lib.shared.modules.forum.UserSubsModel
+import com.rmp.lib.shared.modules.forum.UserUpvoteModel
 import com.rmp.lib.shared.modules.paprika.CacheModel
 import com.rmp.lib.shared.modules.paprika.CacheToDishModel
 import com.rmp.lib.shared.modules.sleep.SleepQuality
 import com.rmp.lib.shared.modules.sleep.SleepQualityModel
 import com.rmp.lib.shared.modules.stat.GraphCacheModel
+import com.rmp.lib.shared.modules.training.TrainingIntensityModel
+import com.rmp.lib.shared.modules.training.TrainingTypeModel
+import com.rmp.lib.shared.modules.training.UserTrainingLogModel
 import com.rmp.lib.shared.modules.user.*
 import com.rmp.lib.utils.kodein.bindSingleton
 import com.rmp.lib.utils.korm.DbType
@@ -50,6 +56,8 @@ fun main() {
     TableRegister.register(DbType.PGSQL, UserStepsLogModel)
     TableRegister.register(DbType.PGSQL, UserAchievementsModel)
     TableRegister.register(DbType.PGSQL, GraphCacheModel)
+    TableRegister.register(DbType.PGSQL, TrainingTypeModel, TrainingIntensityModel, UserTrainingLogModel)
+    TableRegister.register(DbType.PGSQL, UserSubsModel, PostModel, UserUpvoteModel)
 
     TransactionManager.initTables(
         forceRecreate = true,
@@ -109,6 +117,7 @@ fun main() {
             it[age] = 25
             it[nickname] = "nickname"
             it[stepsTarget] = 6000
+            it[registrationDate] = 20230304
         }.named("insert-base-user")
 
         this add UserAchievementsModel.insert {
@@ -124,6 +133,37 @@ fun main() {
             this[SleepQualityModel.name] = item.name
         }.named("add-sleep-quality")
 
+        // Trainings types
+        this add TrainingTypeModel.insert {
+            it[name] = "Плавание"
+            it[coefficient] = 1.3
+        }.named("add-training-type-swimming")
+
+        this add TrainingTypeModel.insert {
+            it[name] = "Велосипед"
+            it[coefficient] = 1.4
+        }.named("add-training-type-cycle")
+
+        this add TrainingTypeModel.insert {
+            it[name] = "Бег"
+            it[coefficient] = 1.5
+        }.named("add-training-type-running")
+
+        // Trainings intensive
+        this add TrainingIntensityModel.insert {
+            it[name] = "Высокая"
+            it[coefficient] = 1.3
+        }.named("add-training-intensity-high")
+
+        this add TrainingIntensityModel.insert {
+            it[name] = "Средняя"
+            it[coefficient] = 1.4
+        }.named("add-training-intensity-mid")
+
+        this add TrainingIntensityModel.insert {
+            it[name] = "Низкая"
+            it[coefficient] = 1.5
+        }.named("add-training-intensity-low")
     }
 
     val kodein = DI {
@@ -178,7 +218,7 @@ fun main() {
                         val sender = event.from
 
                         pubSubService.publish(
-                            event.mutateData(queryResult, queryResult.tid ?: event.tid),
+                            event.mutateData(queryResult, queryResult.tid),
                             sender
                         )
                     }

@@ -1,6 +1,6 @@
 application {
   isDebug = true // true/false
-  fileLocation = ""
+  fileLocation = "/home"
   zoneOffset = 3
   sleepTarget = 8
 
@@ -24,5 +24,6 @@ application {
     diet = "diet-channel"
     user = "user-channel"
     stat = "stat-channel"
+    stat = "forum-channel"
   }
 }
