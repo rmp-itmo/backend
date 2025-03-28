@@ -11,6 +11,7 @@ import com.rmp.lib.shared.modules.paprika.CacheModel
 import com.rmp.lib.shared.modules.paprika.CacheToDishModel
 import com.rmp.lib.shared.modules.sleep.SleepQuality
 import com.rmp.lib.shared.modules.sleep.SleepQualityModel
+import com.rmp.lib.shared.modules.stat.GraphCacheModel
 import com.rmp.lib.shared.modules.user.*
 import com.rmp.lib.utils.kodein.bindSingleton
 import com.rmp.lib.utils.korm.DbType
@@ -48,6 +49,7 @@ fun main() {
     TableRegister.register(DbType.PGSQL, UserHeartLogModel)
     TableRegister.register(DbType.PGSQL, UserStepsLogModel)
     TableRegister.register(DbType.PGSQL, UserAchievementsModel)
+    TableRegister.register(DbType.PGSQL, GraphCacheModel)
 
     TransactionManager.initTables(
         forceRecreate = true,

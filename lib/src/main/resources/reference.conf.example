@@ -23,5 +23,6 @@ application {
     paprika = "paprika-channel"
     diet = "diet-channel"
     user = "user-channel"
+    stat = "stat-channel"
   }
 }
