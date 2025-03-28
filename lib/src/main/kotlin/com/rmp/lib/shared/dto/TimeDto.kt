@@ -5,5 +5,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class TimeDto(
-    val timestamp: Long
+    // YYYYMMDD
+    val date: Int
 ): SerializableClass

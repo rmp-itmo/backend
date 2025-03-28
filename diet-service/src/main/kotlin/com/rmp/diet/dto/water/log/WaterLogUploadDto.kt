@@ -6,5 +6,9 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class WaterLogUploadDto(
+    // YYYYMMDD
+    val date: Int,
+    // HH:MM
+    val time: String,
     val volume: Double,
 ): SerializableClass

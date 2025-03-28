@@ -1,11 +1,11 @@
 package com.rmp.diet.services
 
 import com.rmp.diet.actions.dish.log.DishLogEventState
-import com.rmp.diet.dto.dish.CreateDishDto
-import com.rmp.diet.dto.dish.log.DishLogUploadDto
-import com.rmp.diet.dto.dish.log.DishLogOutputDto
-import com.rmp.diet.dto.water.get.WaterGetPerDayListOutputDto
-import com.rmp.diet.dto.water.get.WaterGetPerDayOutputDto
+import com.rmp.diet.dto.dish.DishDto
+import com.rmp.diet.dto.menu.MenuHistoryOutputDto
+import com.rmp.lib.shared.dto.DishLogCheckDto
+import com.rmp.diet.dto.water.get.WaterHistoryOutputDto
+import com.rmp.diet.dto.water.get.WaterHistoryItemOutputDto
 import com.rmp.diet.dto.water.log.WaterLogOutputDto
 import com.rmp.diet.dto.water.log.WaterLogUploadDto
 import com.rmp.lib.exceptions.BadRequestException
@@ -16,18 +16,18 @@ import com.rmp.lib.shared.dto.TimeDto
 import com.rmp.lib.shared.modules.diet.DietDishLogModel
 import com.rmp.lib.shared.modules.diet.DietWaterLogModel
 import com.rmp.lib.shared.modules.dish.DishModel
+import com.rmp.lib.shared.modules.dish.UserMenuItem
+import com.rmp.lib.shared.modules.dish.UserMenuItem.checked
+import com.rmp.lib.shared.modules.user.UserModel
+import com.rmp.lib.utils.korm.Row
 import com.rmp.lib.utils.korm.column.eq
-import com.rmp.lib.utils.korm.column.grEq
-import com.rmp.lib.utils.korm.column.lessEq
 import com.rmp.lib.utils.korm.insert
+import com.rmp.lib.utils.korm.query.builders.filter.and
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
 import org.kodein.di.DI
-import java.time.*
 
 class DietLogService(di: DI): FsmService(di, AppConf.redis.diet) {
-    private val offset = AppConf.zoneOffset
-
     // Water Log //
     suspend fun uploadWater(redisEvent: RedisEvent) {
         val user = redisEvent.authorizedUser ?: throw ForbiddenException()
@@ -38,105 +38,92 @@ class DietLogService(di: DI): FsmService(di, AppConf.redis.diet) {
             this add DietWaterLogModel
                 .insert {
                     it[userId] = user.id
-                    it[time] = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(offset))
+                    it[time] = data.time
+                    it[date] = data.date
                     it[volume] = data.volume
                 }.named("insert-water-log")
+
+            this add UserModel.update(UserModel.id eq user.id) {
+                UserModel.waterCurrent += data.volume
+            }
         }["insert-water-log"]?.firstOrNull() ?: throw InternalServerException("Insert failed")
 
         redisEvent.switchOnApi(WaterLogOutputDto(inserted[DietWaterLogModel.id]))
     }
 
-
     // Dish Log //
     suspend fun uploadDish(redisEvent: RedisEvent) {
         val user = redisEvent.authorizedUser ?: throw ForbiddenException()
-        val data = redisEvent.parseData<DishLogUploadDto>() ?: throw BadRequestException("Bad data")
-        if (data.id == null && data.dish == null) throw BadRequestException("Bad dish ID provided")
+        val data = redisEvent.parseData<DishLogCheckDto>() ?: throw BadRequestException("Bad data")
 
-        // В Dto два поля: если id == null, значит пользователь указал свой рецепт и такого блюда у нас нет.
+        val menuItem = newTransaction(redisEvent) {
+            this add UserMenuItem
+                .select(checked, DishModel.calories)
+                .join(DishModel)
+                .where { (UserMenuItem.id eq data.menuItemId) and (UserMenuItem.userId eq user.id) }
+        }[UserMenuItem]?.firstOrNull() ?: throw BadRequestException("Menu item not found")
 
-        if (data.id == null && data.dish != null) {
-            redisEvent.switchOn(data.dish, AppConf.redis.diet, redisEvent.mutate(DishLogEventState.LOG_NEW))
-            return
+        if (menuItem[checked] == data.check) {
+            autoCommitTransaction(redisEvent) {}
+            throw BadRequestException("Dish check is already = ${data.check}")
         }
 
+        val dishData = transaction(redisEvent) {
+            this add UserMenuItem.update((UserMenuItem.id eq data.menuItemId) and (UserMenuItem.userId eq user.id)) {
+                this[checked] = data.check
+            }
+        }
 
-        val inserted = newAutoCommitTransaction(redisEvent) {
-            this add DietDishLogModel
-                .insert {
-                    it[userId] = user.id
-                    it[time] = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(offset))
-                    it[dish] = data.id
-                }.named("insert-dish-log")
-        }["insert-dish-log"]?.firstOrNull() ?: throw InternalServerException("Insert failed")
+        val updated = dishData[UserMenuItem]?.firstOrNull() ?: throw InternalServerException("Update failed")
 
-        redisEvent.switchOnApi(DishLogOutputDto(inserted[DietDishLogModel.id]))
+        if (updated[UserMenuItem.updateCount] <= 0) throw BadRequestException("Bad id provided")
+        data.calories = menuItem[DishModel.calories]
+
+        redisEvent
+            .copyId("update-calories")
+            .switchOn(
+                data,
+                AppConf.redis.user,
+                redisEvent.mutate(DishLogEventState.UPDATE_CALORIES)
+            )
     }
 
-    private suspend fun createDish(redisEvent: RedisEvent, dish: CreateDishDto, userId: Long): Long {
-        val insert = newAutoCommitTransaction(redisEvent) {
-            this add DishModel
-                .insert {
-                    it[name] = dish.name
-                    it[description] = dish.description
-                    it[portionsCount] = dish.portionsCount
-                    it[imageUrl] = "" // Нет реализации загрузки фотографий
-                    it[calories] = dish.calories
-                    it[protein] = dish.protein
-                    it[fat] = dish.fat
-                    it[carbohydrates] = dish.carbohydrates
-                    it[cookTime] = dish.timeToCook
-                    it[author] = userId
-                    it[type] = dish.typeId
-                }.named("insert-dish")
-        }["insert-dish"]?.firstOrNull() ?: throw InternalServerException("Insert failed")
 
-        return insert[DishModel.id]
+
+    private fun List<Row>.toDto(): List<DishDto> = map {
+        DishDto(
+            it[DishModel.id],
+            it[DishModel.name],
+            it[DishModel.description],
+            it[DishModel.imageUrl],
+            it[DishModel.portionsCount],
+            it[DishModel.calories],
+            it[DishModel.protein],
+            it[DishModel.fat],
+            it[DishModel.carbohydrates],
+            it[DishModel.cookTime],
+            it[DishModel.type]
+        )
     }
 
-    suspend fun logNew(redisEvent: RedisEvent) {
+    suspend fun getWaterHistory(redisEvent: RedisEvent) {
         val user = redisEvent.authorizedUser ?: throw ForbiddenException()
-        val createDishDto = redisEvent.parseData<CreateDishDto>() ?: throw BadRequestException("Bad dish create dto provided")
-
-        val dishId = createDish(redisEvent, createDishDto, user.id)
-
-        val log = newAutoCommitTransaction(redisEvent) {
-            this add DietDishLogModel
-                .insert {
-                    it[userId] = user.id
-                    it[time] = LocalDateTime.now().toEpochSecond(ZoneOffset.ofHours(offset))
-                    it[dish] = dishId
-                }.named("insert-dish-log")
-        }["insert-dish-log"]?.firstOrNull() ?: throw InternalServerException("Insert failed")
-
-        redisEvent.switchOnApi(DishLogOutputDto(log[DietDishLogModel.id]))
-    }
-
-    suspend fun getWaterPerDay(redisEvent: RedisEvent) {
-        val user = redisEvent.authorizedUser ?: throw ForbiddenException()
-        val day = redisEvent.parseData<TimeDto>() ?: throw BadRequestException("Bad timestamp value provided")
-
-        val (start, end) = getDayBounds(day.timestamp)
+        val day = redisEvent.parseData<TimeDto>() ?: throw BadRequestException("Bad data provided")
 
         val select = newAutoCommitTransaction(redisEvent) {
             this add DietWaterLogModel
-                .select(DietWaterLogModel.time, DietWaterLogModel.volume)
-                .where { DietWaterLogModel.userId eq user.id }
-                .andWhere {
-                    DietWaterLogModel.time grEq start
-                }.apply {
-                    if (end != null) {
-                        this.andWhere {
-                            DietWaterLogModel.time lessEq end
-                        }
-                    }
+                .select(DietWaterLogModel.date, DietWaterLogModel.time, DietWaterLogModel.volume)
+                .where {
+                    (DietWaterLogModel.userId eq user.id) and
+                    (DietWaterLogModel.date eq day.date)
                 }
         }[DietWaterLogModel]
 
         redisEvent.switchOnApi(
-            WaterGetPerDayListOutputDto(
+            WaterHistoryOutputDto(
                 select?.map {
-                    WaterGetPerDayOutputDto(
+                    WaterHistoryItemOutputDto(
+                        day.date,
                         it[DietWaterLogModel.time],
                         it[DietWaterLogModel.volume],
                     )
@@ -145,19 +132,23 @@ class DietLogService(di: DI): FsmService(di, AppConf.redis.diet) {
         )
     }
 
-    private fun getDayBounds(timestamp: Long): Pair<Long, Long?> {
-        val instant = Instant.ofEpochSecond(timestamp)
-        val dateTime = instant.atOffset(ZoneOffset.ofHours(offset)).toLocalDateTime()
-        val date = dateTime.toLocalDate()
+    suspend fun getMenuHistory(redisEvent: RedisEvent) {
+        val user = redisEvent.authorizedUser ?: throw ForbiddenException()
+        val day = redisEvent.parseData<TimeDto>() ?: throw BadRequestException("Bad data provided")
 
-        val startOfDay = date.atStartOfDay().toEpochSecond(ZoneOffset.ofHours(offset))
+        val log = newAutoCommitTransaction(redisEvent) {
+            this add DietDishLogModel
+                .select()
+                .join(DishModel)
+                .where {
+                    (DietDishLogModel.userId eq user.id) and (DietDishLogModel.date eq  day.date)
+                }
+        }[DietDishLogModel] ?: listOf()
 
-        val endOfDay = if (date.isBefore(LocalDate.now(ZoneOffset.ofHours(offset)))) {
-            date.plusDays(1).atStartOfDay().toEpochSecond(ZoneOffset.ofHours(offset)) - 1
-        } else {
-            null
-        }
+        val dishesByMealName = log.groupBy { it[DietDishLogModel.mealName] }.mapValues { (_, v) -> v.toDto() }
 
-        return startOfDay to endOfDay
+        redisEvent.switchOnApi(
+            MenuHistoryOutputDto(day.date, dishesByMealName)
+        )
     }
 }

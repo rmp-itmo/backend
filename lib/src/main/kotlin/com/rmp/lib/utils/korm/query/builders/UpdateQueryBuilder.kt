@@ -30,9 +30,14 @@ class UpdateQueryBuilder(table: Table) : QueryBuilder(table) {
         append(row.updatedColumns.joinToString(",") {
             "${it.name}=?"
         }, row.updatedValues)
+
+        if (row.incremented.isNotEmpty() && row.updatedColumns.isNotEmpty())
+            append(",")
+
         append(row.incremented.joinToString(",") { (col, type, _) ->
             "${col.name} = ${col.name} ${if (type == Row.UpdateOp.INC) "+" else "-"} ?"
         }, row.incremented.map{(_, _, v) -> v})
+
         loadExpressionFilter()
 
         val queryParseData = with(mutableMapOf<String, MutableList<String>>()) {

@@ -27,8 +27,14 @@ infix fun <T: Number, R: Number> Column<T>.neq(value: R): Operator =
 infix fun <T: Number, R: Number> Column<T>.lessEq(value: R): Operator =
     Operator("${this.fullQualifiedName} <= ?", value)
 
+infix fun <T: Number, R: Number> Column<T>.less(value: R): Operator =
+    Operator("${this.fullQualifiedName} < ?", value)
+
 infix fun <T: Number, R: Number> Column<T>.grEq(value: R): Operator =
     Operator("${this.fullQualifiedName} >= ?", value)
+
+infix fun <T: Number, R: Number> Column<T>.gr(value: R): Operator =
+    Operator("${this.fullQualifiedName} > ?", value)
 
 fun <T: Number, R: Number> Column<T>.inRange(l: R, r: R): Operator =
     Operator("${this.fullQualifiedName} >= ?", l) and Operator("${this.fullQualifiedName} <= ?", r)
@@ -48,6 +54,20 @@ infix fun Column<String>.neq(value: String): Operator =
 
 @JvmName("neq_nullable")
 infix fun Column<String?>.neq(value: String): Operator =
+    Operator("${this.fullQualifiedName} != ?", value)
+
+@JvmName("like_nullable")
+infix fun Column<String?>.like(value: String): Operator =
+    Operator("${this.fullQualifiedName} LIKE ?", "%$value%")
+
+@JvmName("like")
+infix fun Column<String>.like(value: String): Operator =
+    Operator("${this.fullQualifiedName} LIKE ?", "%$value%")
+
+infix fun Column<Boolean>.eq(value: Boolean): Operator =
+    Operator("${this.fullQualifiedName} = ?", value)
+
+infix fun Column<Boolean>.neq(value: Boolean): Operator =
     Operator("${this.fullQualifiedName} != ?", value)
 
 infix fun Column<*>.eq(value: Column<*>): Operator =

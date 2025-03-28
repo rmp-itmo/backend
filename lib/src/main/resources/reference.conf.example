@@ -1,7 +1,8 @@
 application {
   isDebug = true // true/false
-  fileLocation = ""
+  fileLocation = "/home"
   zoneOffset = 3
+  sleepTarget = 8
 
   jwt {
     domain = "localhost" //Domain to create JWT on
@@ -22,5 +23,7 @@ application {
     paprika = "paprika-channel"
     diet = "diet-channel"
     user = "user-channel"
+    stat = "stat-channel"
+    stat = "forum-channel"
   }
 }

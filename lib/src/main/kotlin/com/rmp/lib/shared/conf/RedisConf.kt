@@ -11,4 +11,6 @@ data class RedisConf (
     val paprika: String,
     val diet: String,
     val user: String,
+    val stat: String,
+    val forum: String,
 )

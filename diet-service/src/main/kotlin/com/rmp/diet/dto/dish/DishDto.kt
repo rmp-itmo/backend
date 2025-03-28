@@ -16,6 +16,8 @@ data class DishDto (
     val carbohydrates: Double,
     val timeToCook: Int,
     val typeId: Long,
+    val menuItemId: Long? = null,
+    val checked: Boolean? = null
 ): SerializableClass {
     operator fun plus(dish: DishDto): DishDto =
         DishDto(

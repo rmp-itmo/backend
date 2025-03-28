@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class MealOutputDto(
+    val mealId: Long,
     val name: String,
     val dishes: List<DishDto>,
     val params: MacronutrientsDto

@@ -3,22 +3,29 @@ package com.rmp.user.services
 import com.rmp.lib.exceptions.BadRequestException
 import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.exceptions.InternalServerException
+import com.rmp.lib.shared.modules.sleep.SleepQualityModel
+import com.rmp.lib.shared.conf.AppConf
+import com.rmp.lib.shared.dto.target.TargetCheckSupportDto
+import com.rmp.lib.shared.modules.sleep.SleepQuality
 import com.rmp.lib.shared.modules.user.UserSleepModel
 import com.rmp.lib.utils.korm.Row
 import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.column.inRange
 import com.rmp.lib.utils.korm.insert
 import com.rmp.lib.utils.korm.query.builders.filter.and
-import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
+import com.rmp.user.actions.summary.UserSummaryEventState
+import com.rmp.user.actions.target.UserTargetCheckEventState
 import com.rmp.user.dto.sleep.UserSleepDto
 import com.rmp.user.dto.sleep.UserSleepHistory
 import com.rmp.user.dto.sleep.UserSleepInputDto
 import com.rmp.user.dto.sleep.UserSleepSearchDto
+import com.rmp.user.dto.summary.UserSummaryInputDto
 import org.kodein.di.DI
 
 class SleepService(di: DI): FsmService(di) {
+    private val sleepTarget = AppConf.sleepTarget
 
     private fun Row.toDto(): UserSleepDto =
         UserSleepDto(
@@ -27,6 +34,7 @@ class SleepService(di: DI): FsmService(di) {
             this[UserSleepModel.sleepHours],
             this[UserSleepModel.sleepMinutes],
             this[UserSleepModel.date],
+            this[UserSleepModel.sleepQuality]
         )
 
     private fun List<Row>.toDto(): List<UserSleepDto> = map {
@@ -35,7 +43,6 @@ class SleepService(di: DI): FsmService(di) {
 
     suspend fun setTodaySleep(redisEvent: RedisEvent) {
         val authorizedUser = redisEvent.authorizedUser ?: throw ForbiddenException()
-        Logger.debug("HERE $authorizedUser")
         val sleepData = redisEvent.parseData<UserSleepInputDto>() ?: throw BadRequestException("Bad data provided")
 
         val insert = newTransaction(redisEvent) {
@@ -43,6 +50,7 @@ class SleepService(di: DI): FsmService(di) {
                 it[userId] = authorizedUser.id
                 it[sleepHours] = sleepData.hours
                 it[sleepMinutes] = sleepData.minutes
+                it[sleepQuality] = sleepData.quality
                 it[date] = sleepData.date
             }.named("insert-user-sleep")
 
@@ -94,5 +102,46 @@ class SleepService(di: DI): FsmService(di) {
             userSleepSearchDto.dateTo,
             userSleepData.toDto()
         ))
+    }
+
+    suspend fun getSleepTimePerDay(redisEvent: RedisEvent) {
+        val authorizedUser = redisEvent.authorizedUser ?: throw ForbiddenException()
+        val data = redisEvent.parseData<UserSummaryInputDto>() ?: throw InternalServerException("Bad data provided")
+
+        val sleep = newAutoCommitTransaction(redisEvent) {
+            this add UserSleepModel
+                .select(UserSleepModel.id, UserSleepModel.sleepHours, UserSleepModel.sleepMinutes)
+                .where { (UserSleepModel.userId eq authorizedUser.id) and
+                    (UserSleepModel.date eq data.date)
+                }
+        }[UserSleepModel]?.firstOrNull()
+
+        redisEvent.switchOn(
+            UserSleepDto(
+                sleep?.get(UserSleepModel.id) ?: 0L,
+                authorizedUser.id,
+                sleep?.get(UserSleepModel.sleepHours) ?: 0,
+                sleep?.get(UserSleepModel.sleepMinutes) ?: 0,
+                data.date,
+                SleepQuality.FINE.ordinal.toLong()
+            ),
+            AppConf.redis.user, redisEvent.mutate(UserSummaryEventState.SUMMARIZE))
+    }
+
+    suspend fun checkTarget(redisEvent: RedisEvent) {
+        val authorizedUser = redisEvent.authorizedUser ?: throw ForbiddenException()
+        val data = redisEvent.parseData<TargetCheckSupportDto>() ?: throw InternalServerException("Bad data provided")
+
+        val sleep = newTransaction(redisEvent) {
+            this add UserSleepModel
+                .select(UserSleepModel.sleepHours)
+                .where { (UserSleepModel.userId eq authorizedUser.id) and
+                        (UserSleepModel.date eq data.timestamp)
+                }
+        }[UserSleepModel]?.firstOrNull()?.get(UserSleepModel.sleepHours) ?: 0
+
+        data.result.sleep = sleepTarget <= sleep
+
+        redisEvent.switchOn(data, AppConf.redis.user, redisEvent.mutate(UserTargetCheckEventState.CHECK_STEPS))
     }
 }
