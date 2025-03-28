@@ -62,6 +62,7 @@ class UserService(di: DI): FsmService(di) {
             this add UserModel
                 .insert {
                     it[name] = data.name
+                    it[nickname] = "${data.name}#${System.currentTimeMillis()}"
                     it[email] = data.email
                     it[password] = CryptoUtil.hash(data.password)
                     it[waterTarget] = water
@@ -73,6 +74,7 @@ class UserService(di: DI): FsmService(di) {
                     it[isMale] = data.isMale
                     it[age] = data.age
                     it[stepsTarget] = activityCoefficients[UserActivityLevelModel.defaultSteps]
+                    it[registrationDate] = data.registrationDate
                 }.named("insert-user")
         }["insert-user"]?.firstOrNull() ?: throw InternalServerException("Insert failed")
 

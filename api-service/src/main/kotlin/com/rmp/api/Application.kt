@@ -5,6 +5,8 @@ import com.rmp.api.modules.user.UserController
 import com.rmp.api.modules.auth.AuthController
 import com.rmp.api.modules.diet.DishController
 import com.rmp.api.modules.diet.ServiceController
+import com.rmp.api.modules.files.FilesController
+import com.rmp.api.modules.forum.ForumController
 import com.rmp.api.modules.paprika.PaprikaController
 import com.rmp.api.modules.sleep.SleepController
 import com.rmp.api.modules.stat.StatController
@@ -36,6 +38,8 @@ val kodein = DI {
     bindSingleton { SleepController(it) }
     bindSingleton { DishController(it) }
     bindSingleton { StatController(it) }
+    bindSingleton { FilesController(it) }
+    bindSingleton { ForumController(it) }
 }
 
 fun main() {

@@ -25,6 +25,7 @@ class SelectQueryBuilder<T: Table>(table: T): QueryBuilder(table) {
     private var limit: Long? = null
     private var offset: Long? = null
     private var countQuery: Boolean = false
+    private var orderBy: Pair<Column<*>, OrderBy>? = null
 
     fun setColumns(columns: List<Column<*>>): SelectQueryBuilder<T> {
         selectColumns = columns.toMutableList()
@@ -54,6 +55,11 @@ class SelectQueryBuilder<T: Table>(table: T): QueryBuilder(table) {
 
     fun offset(n: Number): SelectQueryBuilder<T> {
         offset = n.toLong()
+        return this
+    }
+
+    fun orderBy(column: Column<*>, dest: OrderBy): SelectQueryBuilder<T> {
+        orderBy = column to dest
         return this
     }
 
@@ -117,6 +123,12 @@ class SelectQueryBuilder<T: Table>(table: T): QueryBuilder(table) {
         append(" ")
 
         loadExpressionFilter()
+
+        if (orderBy != null) {
+            append(" ")
+            append("ORDER BY ${orderBy!!.first.fullQualifiedName} ${orderBy!!.second}")
+        }
+
 
         append(" ")
 
