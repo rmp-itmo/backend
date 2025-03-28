@@ -1,16 +1,16 @@
-package com.rmp.user.actions.update.user
+package com.rmp.user.actions.get
 
 import com.rmp.lib.utils.redis.fsm.Fsm
 import com.rmp.user.services.UserService
-import org.kodein.di.instance
 import org.kodein.di.DI
+import org.kodein.di.instance
 
-class UserUpdateFsm(di: DI): Fsm("update-user", di) {
+class GetAchievementsFsm(di: DI): Fsm("get-achievements", di) {
     private val userService: UserService by instance()
 
     override fun Fsm.registerStates() {
-        on(UserUpdateEventState.INIT) {
-            userService.updateUser(this)
+        on(GetAchievementsEventState.INIT) {
+            userService.getAchievements(this)
         }
     }
 }

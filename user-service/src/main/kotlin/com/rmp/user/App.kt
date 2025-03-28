@@ -11,6 +11,7 @@ import com.rmp.lib.utils.redis.RedisSubscriber
 import com.rmp.lib.utils.redis.fsm.FsmRouter
 import com.rmp.lib.utils.redis.subscribe
 import com.rmp.user.actions.create.UserCreateFsm
+import com.rmp.user.actions.get.GetAchievementsFsm
 import com.rmp.user.actions.get.UserGetFsm
 import com.rmp.user.actions.heart.HeartLogFsm
 import com.rmp.user.actions.sleep.fetch.FetchSleepHistoryFsm
@@ -18,7 +19,7 @@ import com.rmp.user.actions.sleep.set.SetSleepFsm
 import com.rmp.user.actions.update.calories.UserUpdateCurrentCaloriesFsm
 import com.rmp.user.actions.steps.log.StepsLogFsm
 import com.rmp.user.actions.steps.update.UserStepsUpdateFsm
-import com.rmp.user.actions.update.user.UserUpdateFsm
+import com.rmp.user.actions.update.UserUpdateFsm
 import com.rmp.user.services.HeartService
 import com.rmp.user.services.SleepService
 import com.rmp.user.services.StepsService
@@ -51,13 +52,19 @@ fun main() {
 
                 fsm(StepsLogFsm(it))
                 fsm(HeartLogFsm(it))
+
+                fsm(GetAchievementsFsm(it))
             }
         }
     }
 
     // DB tables
-    TableRegister.register(DbType.PGSQL, UserModel, UserGoalTypeModel, UserActivityLevelModel, UserSleepModel,
-        UserHeartLogModel, UserStepsLogModel)
+    TableRegister.register(DbType.PGSQL,
+        UserModel, UserGoalTypeModel,
+        UserActivityLevelModel, UserSleepModel,
+        UserHeartLogModel, UserStepsLogModel,
+        UserAchievementsModel
+    )
 
     val router by kodein.instance<FsmRouter>()
 

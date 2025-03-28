@@ -46,7 +46,7 @@ fun main() {
     TableRegister.register(DbType.PGSQL, UserSleepModel)
     TableRegister.register(DbType.PGSQL, UserHeartLogModel)
     TableRegister.register(DbType.PGSQL, UserStepsLogModel)
-    TableRegister.register(DbType.PGSQL, UserStreakRecordModel)
+    TableRegister.register(DbType.PGSQL, UserAchievementsModel)
 
     TransactionManager.initTables(
         forceRecreate = true,
@@ -108,6 +108,13 @@ fun main() {
             it[stepsTarget] = 6000
         }.named("insert-base-user")
 
+        this add UserAchievementsModel.insert {
+            it[userId] = 1
+            it[water] = 1
+            it[calories] = 1
+            it[sleep] = 1
+            it[steps] = 1
+        }.named("streaks")
 
     }
 

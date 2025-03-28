@@ -299,8 +299,10 @@ object TransactionManager {
                 val relationNotFound = Regex("ERROR: relation \"([^.]*)\" does not exist")
                 val (tableName) = relationNotFound.find(e.message ?: "")?.destructured ?: throw e
                 if (e.message?.matches(relationNotFound) == true) {
-                    connection.rollback()
-                    connection.close()
+                    try {
+                        connection.rollback()
+                        connection.close()
+                    } catch (_: Exception) {}
                     throw Exception("Failed to init table '${table.tableName_}' relation '$tableName' must be created first")
                 } else throw e
             }

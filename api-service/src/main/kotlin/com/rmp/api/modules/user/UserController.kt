@@ -46,6 +46,9 @@ class UserController(override val di: DI) : KodeinController() {
                     }
 
                     route("stat") {
+                        get {
+                            call.process("get-achievements", AppConf.redis.user)
+                        }
                         post("water") {
                             call.process("water-history", AppConf.redis.diet)
                         }
