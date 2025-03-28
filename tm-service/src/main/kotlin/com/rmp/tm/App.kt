@@ -9,6 +9,7 @@ import com.rmp.lib.shared.modules.dish.UserMenuItem
 import com.rmp.lib.shared.modules.dish.UserMenuModel
 import com.rmp.lib.shared.modules.paprika.CacheModel
 import com.rmp.lib.shared.modules.paprika.CacheToDishModel
+import com.rmp.lib.shared.modules.sleep.SleepQuality
 import com.rmp.lib.shared.modules.sleep.SleepQualityModel
 import com.rmp.lib.shared.modules.user.*
 import com.rmp.lib.utils.kodein.bindSingleton
@@ -115,6 +116,11 @@ fun main() {
             it[sleep] = 1
             it[steps] = 1
         }.named("streaks")
+
+        this add SleepQualityModel.batchInsert(SleepQuality.entries) { item, idx ->
+            this[SleepQualityModel.id] = idx + 1L
+            this[SleepQualityModel.name] = item.name
+        }.named("add-sleep-quality")
 
     }
 

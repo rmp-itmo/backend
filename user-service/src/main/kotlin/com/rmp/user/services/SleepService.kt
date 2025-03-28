@@ -3,6 +3,7 @@ package com.rmp.user.services
 import com.rmp.lib.exceptions.BadRequestException
 import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.exceptions.InternalServerException
+import com.rmp.lib.shared.modules.sleep.SleepQualityModel
 import com.rmp.lib.shared.modules.user.UserSleepModel
 import com.rmp.lib.utils.korm.Row
 import com.rmp.lib.utils.korm.column.eq
@@ -26,6 +27,7 @@ class SleepService(di: DI): FsmService(di) {
             this[UserSleepModel.sleepHours],
             this[UserSleepModel.sleepMinutes],
             this[UserSleepModel.date],
+            this[UserSleepModel.sleepQuality]
         )
 
     private fun List<Row>.toDto(): List<UserSleepDto> = map {
@@ -41,6 +43,7 @@ class SleepService(di: DI): FsmService(di) {
                 it[userId] = authorizedUser.id
                 it[sleepHours] = sleepData.hours
                 it[sleepMinutes] = sleepData.minutes
+                it[sleepQuality] = sleepData.quality
                 it[date] = sleepData.date
             }.named("insert-user-sleep")
 

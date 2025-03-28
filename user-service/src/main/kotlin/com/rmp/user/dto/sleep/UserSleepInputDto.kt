@@ -8,5 +8,6 @@ data class UserSleepInputDto (
     val hours: Int,
     val minutes: Int,
     // YYYYMMDD format
-    val date: Int
+    val date: Int,
+    val quality: Long
 ): SerializableClass
