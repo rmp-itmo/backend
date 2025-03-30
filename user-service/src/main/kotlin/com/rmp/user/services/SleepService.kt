@@ -3,7 +3,6 @@ package com.rmp.user.services
 import com.rmp.lib.exceptions.BadRequestException
 import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.exceptions.InternalServerException
-import com.rmp.lib.shared.modules.sleep.SleepQualityModel
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.dto.target.TargetCheckSupportDto
 import com.rmp.lib.shared.modules.sleep.SleepQuality
@@ -98,6 +97,7 @@ class SleepService(di: DI): FsmService(di) {
         }[UserSleepModel] ?: listOf()
 
         redisEvent.switchOnApi(UserSleepHistory(
+            AppConf.sleepTarget.toFloat(),
             userSleepSearchDto.dateFrom,
             userSleepSearchDto.dateTo,
             userSleepData.toDto()
