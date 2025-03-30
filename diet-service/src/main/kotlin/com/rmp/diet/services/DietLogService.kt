@@ -117,11 +117,16 @@ class DietLogService(di: DI): FsmService(di, AppConf.redis.diet) {
                     (DietWaterLogModel.userId eq user.id) and
                     (DietWaterLogModel.date eq day.date)
                 }
-        }[DietWaterLogModel]
+
+            this add UserModel
+                .select(UserModel.waterTarget)
+                .where { UserModel.id eq user.id }
+        }
 
         redisEvent.switchOnApi(
             WaterHistoryOutputDto(
-                select?.map {
+                waterTarget = select[UserModel]?.firstOrNull()?.get(UserModel.waterTarget),
+                select[DietWaterLogModel]?.map {
                     WaterHistoryItemOutputDto(
                         day.date,
                         it[DietWaterLogModel.time],
