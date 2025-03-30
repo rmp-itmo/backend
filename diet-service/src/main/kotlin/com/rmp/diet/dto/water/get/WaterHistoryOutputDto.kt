@@ -5,5 +5,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class WaterHistoryOutputDto(
+    val waterTarget: Double? = null,
     val water: List<WaterHistoryItemOutputDto>?
 ): SerializableClass
