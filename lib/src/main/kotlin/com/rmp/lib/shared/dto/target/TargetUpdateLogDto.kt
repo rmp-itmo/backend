@@ -1,12 +1,11 @@
-package com.rmp.diet.dto.target.set
+package com.rmp.lib.shared.dto.target
 
 import com.rmp.lib.utils.redis.SerializableClass
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class TargetSetInputDto (
+data class TargetUpdateLogDto(
     // YYYYMMDD
     val date: Int,
-    val water: Double? = null,
-    val calories: Double? = null,
+    val user: Long
 ): SerializableClass

@@ -14,5 +14,6 @@ data class UserUpdateDto(
     val goalType: String? = null,
     val isMale: Boolean? = null,
     val age: Int? = null,
-    val nickname: String? = null
+    val nickname: String? = null,
+    val date: Int
 ): SerializableClass

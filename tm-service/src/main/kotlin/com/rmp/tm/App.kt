@@ -15,6 +15,7 @@ import com.rmp.lib.shared.modules.paprika.CacheToDishModel
 import com.rmp.lib.shared.modules.sleep.SleepQuality
 import com.rmp.lib.shared.modules.sleep.SleepQualityModel
 import com.rmp.lib.shared.modules.stat.GraphCacheModel
+import com.rmp.lib.shared.modules.target.TargetLogModel
 import com.rmp.lib.shared.modules.training.TrainingIntensityModel
 import com.rmp.lib.shared.modules.training.TrainingTypeModel
 import com.rmp.lib.shared.modules.training.UserTrainingLogModel
@@ -57,7 +58,7 @@ fun main() {
     TableRegister.register(DbType.PGSQL, UserAchievementsModel)
     TableRegister.register(DbType.PGSQL, GraphCacheModel)
     TableRegister.register(DbType.PGSQL, TrainingTypeModel, TrainingIntensityModel, UserTrainingLogModel)
-    TableRegister.register(DbType.PGSQL, UserSubsModel, PostModel, UserUpvoteModel)
+    TableRegister.register(DbType.PGSQL, UserSubsModel, PostModel, UserUpvoteModel, TargetLogModel)
 
     TransactionManager.initTables(
         forceRecreate = true,
