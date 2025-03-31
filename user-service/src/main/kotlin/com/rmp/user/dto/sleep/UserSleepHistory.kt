@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class UserSleepHistory (
+    val sleepTarget: Float,
     val from: Int,
     val to: Int,
     val data: List<UserSleepDto>

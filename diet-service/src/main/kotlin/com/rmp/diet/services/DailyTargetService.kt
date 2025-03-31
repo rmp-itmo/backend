@@ -1,6 +1,7 @@
 package com.rmp.diet.services
 
 import com.rmp.diet.actions.target.check.DailyTargetCheckEventState
+import com.rmp.diet.actions.target.set.DailyTargetSetEventState
 import com.rmp.lib.shared.dto.target.TargetCheckResultDto
 import com.rmp.lib.shared.dto.target.TargetCheckSupportDto
 import com.rmp.diet.dto.target.set.TargetSetInputDto
@@ -10,6 +11,7 @@ import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.exceptions.InternalServerException
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.dto.TimeDto
+import com.rmp.lib.shared.dto.target.TargetUpdateLogDto
 import com.rmp.lib.shared.modules.diet.DietDishLogModel
 import com.rmp.lib.shared.modules.dish.UserMenuItem
 import com.rmp.lib.shared.modules.dish.UserMenuModel
@@ -37,6 +39,11 @@ class DailyTargetService(di: DI) : FsmService(di, AppConf.redis.diet) {
                     }
                 }
         }[UserModel]
+
+        redisEvent
+            .copyId("target-update-log")
+            .switchOn(TargetUpdateLogDto(data.date, user.id), AppConf.redis.stat, redisEvent.mutate(DailyTargetSetEventState.LOG))
+
         redisEvent.switchOnApi(TargetSetOutputDto("success"))
     }
 

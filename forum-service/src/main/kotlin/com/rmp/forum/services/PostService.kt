@@ -1,13 +1,14 @@
 package com.rmp.forum.services
 
-import com.rmp.forum.dto.CreatePostDto
-import com.rmp.forum.dto.PostDto
-import com.rmp.forum.dto.PostListDto
-import com.rmp.forum.dto.UpvotePostDto
+import com.rmp.forum.actions.CreatePostFsm
+import com.rmp.forum.actions.ShareAchievementFsm
+import com.rmp.forum.dto.*
 import com.rmp.lib.exceptions.BadRequestException
 import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.exceptions.InternalServerException
+import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.dto.Response
+import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.shared.modules.forum.PostModel
 import com.rmp.lib.shared.modules.forum.UserUpvoteModel
 import com.rmp.lib.shared.modules.user.UserModel
@@ -19,11 +20,13 @@ import com.rmp.lib.utils.korm.column.inRange
 import com.rmp.lib.utils.korm.column.lessEq
 import com.rmp.lib.utils.korm.insert
 import com.rmp.lib.utils.korm.query.builders.filter.and
+import com.rmp.lib.utils.korm.query.builders.filter.or
 import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
 import org.kodein.di.DI
 import org.kodein.di.instance
+import kotlin.math.roundToLong
 
 class PostService(di: DI) : FsmService(di) {
     private val subscribeService: SubscribeService by instance()
@@ -73,9 +76,11 @@ class PostService(di: DI) : FsmService(di) {
         val user = redisEvent.authorizedUser ?: throw ForbiddenException()
         val postData = redisEvent.parseData<CreatePostDto>() ?: throw BadRequestException("Bad Request")
 
-        val imageName = if (postData.image != null && postData.imageName != null) {
-            FilesUtil.buildName(postData.imageName)
-        } else null
+        val imageName = if (postData.image != null) {
+            if (postData.imageName != null)
+                FilesUtil.buildName(postData.imageName)
+            else throw BadRequestException("You must provide base64 encoded image")
+        } else postData.imageName
 
         val createdAt = System.currentTimeMillis()
         newTransaction(redisEvent) {
@@ -92,8 +97,8 @@ class PostService(di: DI) : FsmService(di) {
             this add PostModel.select().join(UserModel).where { (PostModel.timestamp eq createdAt) and (PostModel.authorId eq user.id) }
         }[PostModel]?.firstOrNull() ?: throw InternalServerException("Failed to create post")
 
-        if (imageName != null) {
-            FilesUtil.upload(postData.image!!, imageName)
+        if (imageName != null && postData.image != null) {
+            FilesUtil.upload(postData.image, imageName)
         }
 
         autoCommitTransaction(redisEvent) {}
@@ -131,5 +136,62 @@ class PostService(di: DI) : FsmService(di) {
         }
 
         redisEvent.switchOnApi(Response(true, if (upvotePostDto.upvote) "Upvoted" else "Downvoted"))
+    }
+
+
+    suspend fun shareAchievement(redisEvent: RedisEvent) {
+        val data = redisEvent.parseData<ShareAchievementInputDto>() ?: throw BadRequestException("Bad data provided")
+
+        val achievementTitle = when (data.achievementType) {
+            1 -> "питанию"
+            2 -> "воде"
+            3 -> "cну"
+            4 -> "шагам"
+            else -> throw BadRequestException("Bad type provided")
+        }
+
+        val dayLabel = if (data.current > 1) "дней" else "дня"
+
+        val postData = CreatePostDto(
+            "Какой же я крутой",
+            "Мне удалось соблюдать норму по $achievementTitle на протяжении ${data.current} $dayLabel. И попасть в топ ${data.percentage}% пользователей!"
+        )
+
+        redisEvent
+            .copyId("create-post")
+            .switchOn(
+                postData,
+                AppConf.redis.forum,
+                redisEvent.mutate(CreatePostFsm.CreatePostEventState.INIT)
+            )
+    }
+
+    suspend fun shareMenu(redisEvent: RedisEvent) {
+        val user = redisEvent.authorizedUser ?: throw ForbiddenException()
+        val data = redisEvent.parseData<ShareMenuInputDto>() ?: throw BadRequestException("Bad data provided")
+
+        val dish = newAutoCommitTransaction(redisEvent) {
+            this add DishModel.select().where {
+                ((DishModel.private eq false) or (DishModel.author eq user.id)) and (DishModel.id eq data.dishId)
+            }
+        }[DishModel]?.firstOrNull() ?: throw BadRequestException("Bad dish id provided")
+
+
+        val postData = CreatePostDto(
+            title = "Новый рецепт!",
+            imageName = dish[DishModel.imageUrl],
+            text = "Посмотри какое классное блюдо можно приготовить: \n\n" +
+                    dish[DishModel.name] + "\n" +
+                    dish[DishModel.description] + "\n" +
+                    "Калории: ${dish[DishModel.calories].roundToLong()}, Белки: ${dish[DishModel.protein].roundToLong()}, Жиры: ${dish[DishModel.fat].roundToLong()}, Углеводы: ${dish[DishModel.carbohydrates].roundToLong()}"
+        )
+
+        redisEvent
+            .copyId("create-post")
+            .switchOn(
+                postData,
+                AppConf.redis.forum,
+                redisEvent.mutate(CreatePostFsm.CreatePostEventState.INIT)
+            )
     }
 }

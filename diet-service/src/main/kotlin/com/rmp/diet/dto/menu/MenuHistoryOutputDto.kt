@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class MenuHistoryOutputDto (
+    val caloriesTarget: Double,
     val date: Int,
     val dishes: Map<String, List<DishDto>>
 ): SerializableClass

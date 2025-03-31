@@ -18,7 +18,12 @@ infix fun <T: Number, R: Number> Column<T>.notInList(value: List<R>): Operator =
     else
         Operator("${this.fullQualifiedName} not in (${value.joinToString(",") {"?"}})", value)
 
+@JvmName("numberEq")
 infix fun <T: Number, R: Number> Column<T>.eq(value: R): Operator =
+    Operator("${this.fullQualifiedName} = ?", value)
+
+@JvmName("numberEqNullable")
+infix fun <T: Number, R: Number> Column<T?>.eq(value: R): Operator =
     Operator("${this.fullQualifiedName} = ?", value)
 
 infix fun <T: Number, R: Number> Column<T>.neq(value: R): Operator =

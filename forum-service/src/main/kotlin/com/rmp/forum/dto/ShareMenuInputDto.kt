@@ -1,11 +1,9 @@
-package com.rmp.user.dto
+package com.rmp.forum.dto
 
 import com.rmp.lib.utils.redis.SerializableClass
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class UserStepsUpdateDto(
-    // YYYYMMDD
-    val date: Int,
-    val steps: Int
+data class ShareMenuInputDto(
+    val dishId: Long,
 ): SerializableClass

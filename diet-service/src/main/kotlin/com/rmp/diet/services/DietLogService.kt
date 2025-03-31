@@ -18,10 +18,13 @@ import com.rmp.lib.shared.modules.diet.DietWaterLogModel
 import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.shared.modules.dish.UserMenuItem
 import com.rmp.lib.shared.modules.dish.UserMenuItem.checked
+import com.rmp.lib.shared.modules.target.TargetLogModel
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.korm.Row
 import com.rmp.lib.utils.korm.column.eq
+import com.rmp.lib.utils.korm.column.less
 import com.rmp.lib.utils.korm.insert
+import com.rmp.lib.utils.korm.query.builders.OrderBy
 import com.rmp.lib.utils.korm.query.builders.filter.and
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
@@ -118,14 +121,16 @@ class DietLogService(di: DI): FsmService(di, AppConf.redis.diet) {
                     (DietWaterLogModel.date eq day.date)
                 }
 
-            this add UserModel
-                .select(UserModel.waterTarget)
-                .where { UserModel.id eq user.id }
+            this add TargetLogModel
+                .select(TargetLogModel.waterTarget)
+                .where { (TargetLogModel.userId eq user.id) and
+                        (TargetLogModel.date less  (day.date + 1)) }
+                .orderBy(TargetLogModel.date, OrderBy.DESC).limit(1)
         }
 
         redisEvent.switchOnApi(
             WaterHistoryOutputDto(
-                waterTarget = select[UserModel]?.firstOrNull()?.get(UserModel.waterTarget),
+                waterTarget = select[TargetLogModel]?.firstOrNull()?.get(TargetLogModel.waterTarget)?: 2.0,
                 select[DietWaterLogModel]?.map {
                     WaterHistoryItemOutputDto(
                         day.date,
@@ -141,19 +146,30 @@ class DietLogService(di: DI): FsmService(di, AppConf.redis.diet) {
         val user = redisEvent.authorizedUser ?: throw ForbiddenException()
         val day = redisEvent.parseData<TimeDto>() ?: throw BadRequestException("Bad data provided")
 
-        val log = newAutoCommitTransaction(redisEvent) {
+        val transaction = newAutoCommitTransaction(redisEvent) {
             this add DietDishLogModel
                 .select()
                 .join(DishModel)
                 .where {
                     (DietDishLogModel.userId eq user.id) and (DietDishLogModel.date eq  day.date)
                 }
-        }[DietDishLogModel] ?: listOf()
+
+            this add TargetLogModel
+                .select(TargetLogModel.caloriesTarget)
+                .where { (TargetLogModel.userId eq user.id) and
+                        (TargetLogModel.date less  (day.date + 1)) }
+                .orderBy(TargetLogModel.date, OrderBy.DESC).limit(1)
+        }
+
+        val log = transaction[DietDishLogModel] ?: listOf()
 
         val dishesByMealName = log.groupBy { it[DietDishLogModel.mealName] }.mapValues { (_, v) -> v.toDto() }
 
         redisEvent.switchOnApi(
-            MenuHistoryOutputDto(day.date, dishesByMealName)
+            MenuHistoryOutputDto(
+                transaction[TargetLogModel]?.firstOrNull()?.get(TargetLogModel.caloriesTarget)?: 0.0,
+                day.date,
+                dishesByMealName)
         )
     }
 }

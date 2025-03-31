@@ -15,6 +15,7 @@ import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.dto.CurrentCaloriesOutputDto
 import com.rmp.lib.shared.dto.DishLogCheckDto
 import com.rmp.lib.shared.modules.user.UserModel
+import com.rmp.lib.utils.files.FilesUtil
 import com.rmp.lib.utils.korm.Row
 import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.column.inList
@@ -191,13 +192,15 @@ class MenuService(di: DI) : FsmService(di) {
 
 
     private suspend fun createDish(redisEvent: RedisEvent, dish: CreateDishDto, userId: Long): Long {
+        val imageName = FilesUtil.buildName(dish.imageName)
+
         val insert = transaction(redisEvent) {
             this add DishModel
                 .insert {
                     it[name] = dish.name
                     it[description] = dish.description
                     it[portionsCount] = dish.portionsCount
-                    it[imageUrl] = "" // Нет реализации загрузки фотографий
+                    it[imageUrl] = imageName
                     it[calories] = dish.calories
                     it[protein] = dish.protein
                     it[fat] = dish.fat
@@ -207,6 +210,8 @@ class MenuService(di: DI) : FsmService(di) {
                     it[type] = dish.typeId
                 }.named("insert-dish")
         }["insert-dish"]?.firstOrNull() ?: throw InternalServerException("Insert failed")
+
+        FilesUtil.upload(dish.image, imageName)
 
         return insert[DishModel.id]
     }
