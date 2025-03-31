@@ -1,8 +1,10 @@
 package com.rmp.user.services
 
 import com.rmp.lib.exceptions.*
+import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.dto.CurrentCaloriesOutputDto
 import com.rmp.lib.shared.dto.DishLogCheckDto
+import com.rmp.lib.shared.dto.target.TargetUpdateLogDto
 import com.rmp.lib.shared.modules.user.*
 import com.rmp.lib.utils.korm.column.Column
 import com.rmp.lib.utils.korm.column.eq
@@ -13,6 +15,8 @@ import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
 import com.rmp.lib.utils.security.bcrypt.CryptoUtil
+import com.rmp.user.actions.create.UserCreateEventState
+import com.rmp.user.actions.update.UserUpdateEventState
 import com.rmp.user.dto.*
 import com.rmp.user.dto.sleep.UserSleepDto
 import com.rmp.user.dto.summary.UserSummaryOutputDto
@@ -95,6 +99,11 @@ class UserService(di: DI): FsmService(di) {
 
         val count = update[UserModel]?.firstOrNull()?.get(UserModel.updateCount)
         if (count == null || count < 1) throw InternalServerException("Failed to update")
+
+        redisEvent
+            .copyId("target-update-log")
+            .switchOn(TargetUpdateLogDto(data.registrationDate, user[UserModel.id]), AppConf.redis.stat,
+                redisEvent.mutate(UserCreateEventState.LOG))
 
         redisEvent.switchOnApi(UserCreateOutputDto(user[UserModel.id]))
     }
@@ -232,6 +241,11 @@ class UserService(di: DI): FsmService(di) {
 
         val count = update[UserModel]?.firstOrNull()?.get(UserModel.updateCount)
         if (count == null || count < 1) throw InternalServerException("Failed to update")
+
+        redisEvent
+            .copyId("target-update-log")
+            .switchOn(TargetUpdateLogDto(data.date, authUser.id), AppConf.redis.stat,
+                redisEvent.mutate(UserUpdateEventState.LOG))
 
         redisEvent.switchOnApi(UserCreateOutputDto(authUser.id))
     }

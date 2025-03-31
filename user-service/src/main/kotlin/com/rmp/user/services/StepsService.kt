@@ -5,12 +5,14 @@ import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.exceptions.InternalServerException
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.dto.target.TargetCheckSupportDto
+import com.rmp.lib.shared.dto.target.TargetUpdateLogDto
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.shared.modules.user.UserStepsLogModel
 import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.insert
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
+import com.rmp.user.actions.steps.update.UserStepsUpdateEventState
 import com.rmp.user.actions.target.UserTargetCheckEventState
 import com.rmp.user.dto.UserCreateOutputDto
 import com.rmp.user.dto.UserStepsUpdateDto
@@ -57,6 +59,12 @@ class StepsService(di: DI): FsmService(di) {
 
         val count = update[UserModel]?.firstOrNull()?.get(UserModel.updateCount)
         if (count == null || count < 1) throw InternalServerException("Failed to update")
+
+        redisEvent
+            .copyId("target-update-log")
+            .switchOn(
+                TargetUpdateLogDto(stepsDto.date, user.id),
+                AppConf.redis.stat, redisEvent.mutate(UserStepsUpdateEventState.LOG))
 
         redisEvent.switchOnApi(UserCreateOutputDto(user.id))
     }

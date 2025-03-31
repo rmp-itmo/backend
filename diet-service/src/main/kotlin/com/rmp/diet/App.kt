@@ -21,6 +21,7 @@ import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.shared.modules.dish.DishTypeModel
 import com.rmp.lib.shared.modules.dish.UserMenuItem
 import com.rmp.lib.shared.modules.dish.UserMenuModel
+import com.rmp.lib.shared.modules.target.TargetLogModel
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.kodein.bindSingleton
 import com.rmp.lib.utils.korm.DbType
@@ -68,7 +69,7 @@ fun main() {
     TableRegister.register(DbType.PGSQL, UserModel)
     TableRegister.register(DbType.PGSQL, DishModel, DishTypeModel)
     TableRegister.register(DbType.PGSQL, DietDishLogModel, DietWaterLogModel)
-    TableRegister.register(DbType.PGSQL, UserMenuModel, UserMenuItem)
+    TableRegister.register(DbType.PGSQL, UserMenuModel, UserMenuItem, TargetLogModel)
 
     val router by kodein.instance<FsmRouter>()
 
