@@ -8,6 +8,7 @@ import com.rmp.forum.services.PostService
 import com.rmp.forum.services.ProfileService
 import com.rmp.forum.services.SubscribeService
 import com.rmp.lib.shared.conf.AppConf
+import com.rmp.lib.shared.modules.dish.DishModel
 import com.rmp.lib.shared.modules.forum.PostModel
 import com.rmp.lib.shared.modules.forum.UserSubsModel
 import com.rmp.lib.shared.modules.forum.UserUpvoteModel
@@ -44,12 +45,16 @@ fun main() {
                 fsm(FetchMyselfFsm(it))
                 fsm(SubscriptionFsm(it))
                 fsm(UpvotePostFsm(it))
+                fsm(ShareDishFsm(it))
+                fsm(ShareAchievementFsm(it))
             }
         }
     }
 
     // DB tables
-    TableRegister.register(DbType.PGSQL, UserModel, UserSubsModel, PostModel, UserUpvoteModel)
+    TableRegister.register(DbType.PGSQL,
+        UserModel, UserSubsModel, PostModel, UserUpvoteModel, DishModel
+    )
 
     val router by kodein.instance<FsmRouter>()
 

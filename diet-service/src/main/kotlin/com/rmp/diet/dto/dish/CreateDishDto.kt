@@ -7,6 +7,8 @@ import kotlinx.serialization.Serializable
 data class CreateDishDto (
     val name: String,
     val description: String,
+    val image: String,
+    val imageName: String,
     val portionsCount: Int,
     val calories: Double,
     val protein: Double,

@@ -33,7 +33,15 @@ class ForumController(override val di: DI) : KodeinController() {
                         call.process("upvote-post", AppConf.redis.forum)
                     }
                 }
+                route("share") {
+                    post("dish") {
+                        call.process("share-dish", AppConf.redis.forum)
+                    }
 
+                    post("achievement") {
+                        call.process("share-achievement", AppConf.redis.forum)
+                    }
+                }
             }
         }
     }
