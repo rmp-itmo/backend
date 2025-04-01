@@ -1,6 +1,7 @@
 package com.rmp.stat.services
 
 import com.rmp.lib.exceptions.BadRequestException
+import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.modules.stat.GraphCacheModel
 import com.rmp.lib.shared.modules.user.UserHeartLogModel
@@ -22,9 +23,12 @@ import kotlin.math.min
 class GraphService(di: DI) : FsmService(di, AppConf.redis.stat) {
 
     private suspend fun cache(redisEvent: RedisEvent, graphName: String, topBound: Int, bottomBound: Int, graphOutputDto: GraphOutputDto) {
+        val user = redisEvent.authorizedUser ?: throw ForbiddenException()
+
         newAutoCommitTransaction(redisEvent) {
             this add GraphCacheModel.insert {
                 it[name] = graphName
+                it[userId] = user.id
                 it[top] = topBound
                 it[bottom] = bottomBound
                 it[results] = Json.serializer.encodeToString(graphOutputDto)
@@ -33,9 +37,11 @@ class GraphService(di: DI) : FsmService(di, AppConf.redis.stat) {
     }
 
     private suspend fun findCache(redisEvent: RedisEvent, graphName: String, topBound: Int, bottomBound: Int): GraphOutputDto? {
+        val userId = redisEvent.authorizedUser?.id ?: throw ForbiddenException()
+
         val cache = newAutoCommitTransaction(redisEvent) {
             this add GraphCacheModel.select(GraphCacheModel.results).where {
-                (GraphCacheModel.top eq topBound) and (GraphCacheModel.name eq graphName) and (GraphCacheModel.bottom eq bottomBound)
+                (GraphCacheModel.top eq topBound) and (GraphCacheModel.name eq graphName) and (GraphCacheModel.bottom eq bottomBound) and (GraphCacheModel.userId eq userId)
             }
         }[GraphCacheModel]?.firstOrNull() ?: return null
 
@@ -62,7 +68,7 @@ class GraphService(di: DI) : FsmService(di, AppConf.redis.stat) {
             lowest = min(point, lowest)
             sum += point
             date to point
-        }.toMap()
+        }.sortedBy { it.first }.toMap()
 
         if (sum == 0.0 || data.isEmpty()) {
             highest = 0.0
@@ -103,7 +109,7 @@ class GraphService(di: DI) : FsmService(di, AppConf.redis.stat) {
             heartData.groupBy { it[UserHeartLogModel.time] }
         }.buildGraphData { it[UserHeartLogModel.heartRate] }
 
-        cache(redisEvent, "heart", topBound, bottomBound, graphOutputDto)
+//        cache(redisEvent, "heart", topBound, bottomBound, graphOutputDto)
 
         redisEvent.switchOnApi(graphOutputDto)
     }
@@ -140,7 +146,7 @@ class GraphService(di: DI) : FsmService(di, AppConf.redis.stat) {
             }
         }
 
-        cache(redisEvent, "sleep", topBound, bottomBound, graphOutputDto)
+//        cache(redisEvent, "sleep", topBound, bottomBound, graphOutputDto)
 
         redisEvent.switchOnApi(graphOutputDto)
     }
