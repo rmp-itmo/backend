@@ -10,8 +10,8 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-//const val baseUrl = "https://api.rmp.dudosyka.ru"
-const val baseUrl = "http://localhost:8080"
+const val baseUrl = "https://api.rmp.dudosyka.ru"
+//const val baseUrl = "http://localhost:8080"
 
 @Serializable
 open class AnyResponse

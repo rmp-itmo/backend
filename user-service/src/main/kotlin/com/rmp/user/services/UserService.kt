@@ -4,13 +4,11 @@ import com.rmp.lib.exceptions.*
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.dto.CurrentCaloriesOutputDto
 import com.rmp.lib.shared.dto.DishLogCheckDto
-import com.rmp.lib.shared.dto.Response
 import com.rmp.lib.shared.dto.target.TargetUpdateLogDto
 import com.rmp.lib.shared.modules.user.*
 import com.rmp.lib.utils.korm.column.Column
 import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.column.less
-import com.rmp.lib.utils.korm.column.lessEq
 import com.rmp.lib.utils.korm.insert
 import com.rmp.lib.utils.korm.references.JoinType
 import com.rmp.lib.utils.log.Logger
@@ -33,16 +31,8 @@ class UserService(di: DI): FsmService(di) {
     suspend fun createUser(redisEvent: RedisEvent) {
         val data = redisEvent.parseData<UserCreateInputDto>() ?: throw BadRequestException("Invalid data provided")
 
-        newTransaction(redisEvent) { this add UserModel.select().where { UserModel.id lessEq 10000 } }
+        checkEmail(redisEvent, data.email)
 
-        autoCommitTransaction(redisEvent) { this add UserModel.select().where { UserModel.id lessEq 20000 } }
-//        checkEmail(redisEvent, data.email)
-
-        redisEvent.switchOnApi(Response(true, ""))
-        return
-
-
-        Logger.debug(data.activityType)
 
         val select = newAutoCommitTransaction(redisEvent) {
             this add UserActivityLevelModel
