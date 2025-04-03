@@ -8,7 +8,6 @@ import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.query.QueryBuilder
 import com.rmp.lib.utils.korm.query.QueryDto
 import com.rmp.lib.utils.korm.query.QueryType
-import com.rmp.lib.utils.log.Logger
 
 class UpdateQueryBuilder(table: Table) : QueryBuilder(table) {
 
@@ -46,8 +45,6 @@ class UpdateQueryBuilder(table: Table) : QueryBuilder(table) {
             }
             this
         }
-
-        Logger.debug(queryParseData.toString())
 
         return QueryDto.executeQuery(QueryType.UPDATE, getQuery(), getParams(), queryParseData).named(table.tableName_)
     }

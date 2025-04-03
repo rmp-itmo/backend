@@ -35,7 +35,10 @@ object ConnectionManager {
         for (event in this) {
             val connection = clickhouseDatasource.connection ?: continue
 
-            val stmt = event.queryDto.prepare(connection)
+
+            println(event.queryDto.sql)
+            println(event.queryDto.params)
+            val stmt = event.queryDto.prepare(connection, false)
             stmt.executeQuery()
 
             connection.close()

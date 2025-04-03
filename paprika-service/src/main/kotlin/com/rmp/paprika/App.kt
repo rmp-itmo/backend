@@ -8,6 +8,7 @@ import com.rmp.lib.shared.modules.paprika.CacheToDishModel
 import com.rmp.lib.utils.kodein.bindSingleton
 import com.rmp.lib.utils.korm.DbType
 import com.rmp.lib.utils.korm.TableRegister
+import com.rmp.lib.utils.metrics.MetricsProvider
 import com.rmp.lib.utils.redis.PubSubService
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.RedisSubscriber
@@ -19,15 +20,17 @@ import com.rmp.paprika.actions.menu.GenerateMenuFsm
 import com.rmp.paprika.services.CacheService
 import com.rmp.paprika.services.DishService
 import com.rmp.paprika.services.PaprikaService
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
+import io.micrometer.prometheusmetrics.PrometheusConfig
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
+import kotlinx.coroutines.*
 import org.kodein.di.DI
 import org.kodein.di.instance
 
+val prometheusMeterRegistry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
+
 fun main() {
     val kodein = DI {
-        bindSingleton { PubSubService(AppConf.redis.paprika, it) }
+        bindSingleton { PubSubService(AppConf.redis.paprika, prometheusMeterRegistry, it) }
         bindSingleton { CacheService(it) }
         bindSingleton { DishService(it) }
         bindSingleton { PaprikaService(it) }
@@ -47,17 +50,25 @@ fun main() {
 
     runBlocking {
         coroutineScope {
-            subscribe(object : RedisSubscriber() {
+            val handler = object : RedisSubscriber() {
                 override fun onMessage(redisEvent: RedisEvent?, channel: String, message: String) {
                     if (redisEvent == null) {
                         throw Exception("Unknown event in $channel ($message)")
                     }
 
-                    launch {
+                    launch(context = Dispatchers.IO.limitedParallelism(Int.MAX_VALUE)) {
                         router.process(redisEvent)
                     }
                 }
-            }, true, AppConf.redis.paprika)
+            }
+
+            withContext(Dispatchers.IO) {
+                launch {
+                    MetricsProvider.start(prometheusMeterRegistry)
+                }
+            }
+
+            subscribe(handler, true, AppConf.redis.paprika)
         }
     }
 }

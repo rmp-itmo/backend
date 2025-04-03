@@ -3,24 +3,14 @@ package com.rmp.lib.utils.korm.query
 import com.rmp.lib.utils.korm.RowDto
 import com.rmp.lib.utils.korm.query.batch.BatchEntry
 import com.rmp.lib.utils.redis.SerializableClass
-import com.rmp.lib.utils.redis.UuidSerializer
 import com.rmp.lib.utils.serialization.UltimateSerializer
 import kotlinx.serialization.Serializable
 import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.SQLException
 import java.sql.Statement
-import kotlin.uuid.ExperimentalUuidApi
-import kotlin.uuid.Uuid
 
 sealed class Query: SerializableClass
-
-enum class ResultPlaceholder(val value: Int) {
-    INITIALIZED(-1),
-    COMMITED(-2),
-    ROLLEDBACK(-3),
-    CLOSED(-4)
-}
 
 enum class QueryType(val value: Int) {
     DDL(0),
@@ -75,8 +65,8 @@ open class QueryDto (
         return Pair(name, this)
     }
 
-    fun prepare(connection: Connection): PreparedStatement {
-        val stmt = connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)
+    fun prepare(connection: Connection, returnGenerated: Boolean = true): PreparedStatement {
+        val stmt = if (returnGenerated) connection.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS) else connection.prepareStatement(sql)
         params.forEachIndexed { index, param ->
             if (param == null) {
                 stmt.setObject(index + 1, null)

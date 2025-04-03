@@ -24,7 +24,7 @@ class BatchBuilder {
         batch += query.execute() named "delete-${query.table.tableName_}"
     }
 
-    internal fun init() {
+    fun init() {
         batch += InitTransactionQueryDto() named "init-${batch.queries.size}"
     }
 

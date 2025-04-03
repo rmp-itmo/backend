@@ -21,10 +21,14 @@ import com.rmp.lib.utils.redis.subscribe
 import io.ktor.server.application.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
+import io.micrometer.prometheusmetrics.PrometheusConfig
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.runBlocking
 import org.kodein.di.DI
 import org.kodein.di.instance
+
+val prometheusRegistry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
 
 val kodein = DI {
     // ----- Services ------
@@ -65,7 +69,7 @@ fun main() {
 
 fun Application.module() {
     configureSecurity()
-    configureMonitoring()
+    configureMonitoring(prometheusRegistry)
     configureSerialization()
     configureExceptionFilter()
 

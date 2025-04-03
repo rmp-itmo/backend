@@ -4,14 +4,13 @@ package com.rmp.lib.utils.redis
 
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.utils.kodein.KodeinService
-import com.rmp.lib.utils.korm.query.BatchQuery
-import com.rmp.lib.utils.korm.query.QueryDto
-import com.rmp.lib.utils.korm.query.QueryType
 import com.rmp.lib.utils.korm.query.batch.BatchBuilder
 import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.serialization.Json
-import io.github.crackthecodeabhi.kreds.connection.Endpoint
-import io.github.crackthecodeabhi.kreds.connection.newClient
+import io.lettuce.core.RedisClient
+import io.lettuce.core.pubsub.api.sync.RedisPubSubCommands
+import io.micrometer.core.instrument.Timer
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -19,25 +18,33 @@ import kotlinx.coroutines.ObsoleteCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.actor
 import org.kodein.di.DI
-import java.util.UUID
+import java.util.concurrent.TimeUnit
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-const val DB_REQUEST_TIMEOUT = 5_000L
-
-open class PubSubService(val serviceName: String, di: DI) : KodeinService(di) {
-    val client by lazy {
-        newClient(Endpoint(AppConf.redis.host, AppConf.redis.port))
+open class PubSubService(val serviceName: String, prometheusMeterRegistry: PrometheusMeterRegistry, di: DI) : KodeinService(di) {
+    private val client: RedisPubSubCommands<String, String> by lazy {
+        RedisClient.create("redis://${AppConf.redis.host}:${AppConf.redis.port}").connectPubSub().sync()
     }
+
+    private val dbProcessingTime: Timer = Timer
+        .builder(AppConf.DB_REQUEST_PROCESSING_TIME_METRIC)
+        .publishPercentiles(0.5, 0.95, 0.99)
+        .register(prometheusMeterRegistry)
+
+    private val eventPublishingTime : Timer = Timer
+        .builder("event-publishing-time")
+        .publishPercentiles(0.5, 0.95, 0.99)
+        .register(prometheusMeterRegistry)
 
     val json = Json.serializer
 
-    suspend inline fun publish(event: RedisEvent, channel: String, from: String? = null) {
+    fun publish(event: RedisEvent, channel: String, from: String? = null) {
+        val time = System.currentTimeMillis()
         event.from = from ?: serviceName
-        client.use {
-            Logger.traceEventPublished(event, channel)
-            it.publish(channel, json.encodeToString(event))
-        }
+        Logger.traceEventPublished(event, channel)
+        client.publish(channel, json.encodeToString(event))
+        eventPublishingTime.record(System.currentTimeMillis() - time, TimeUnit.MILLISECONDS)
     }
 
     private val time = mutableMapOf<Uuid, Long>()
@@ -52,7 +59,7 @@ open class PubSubService(val serviceName: String, di: DI) : KodeinService(di) {
         class DbResponse(val value: RedisEvent): DbCommunication()
     }
 
-    @OptIn(ObsoleteCoroutinesApi::class)
+    @OptIn(ObsoleteCoroutinesApi::class, ExperimentalUuidApi::class)
     private val dbActor = CoroutineScope(Job()).actor<DbCommunication>(capacity = Channel.UNLIMITED) {
         for (item in this) {
             when (item) {
@@ -62,16 +69,16 @@ open class PubSubService(val serviceName: String, di: DI) : KodeinService(di) {
                     item.idFetched.complete(id)
                     pendingDbRequests += id to item.completableDeferred
                     time += id to System.currentTimeMillis()
-                    Logger.debug("Pending request added ${item.redisEvent.action}")
+                    Logger.debug("Pending request added $id", action = item.redisEvent.action)
                 }
                 is DbCommunication.DbResponse -> {
                     if (pendingDbRequests.containsKey(item.value.dbRequest)) {
-                        Logger.debug("Pending request found ${item.value.action}")
+                        Logger.debug("Pending request found ${item.value.dbRequest}", action = item.value.action)
                         val deferred = pendingDbRequests.getValue(item.value.dbRequest!!)
 
                         val timeout = System.currentTimeMillis() - time[item.value.dbRequest]!!
 
-                        Logger.debug("DB RESPONSE RECEIVED[${timeout}ms]: ${item.value}")
+                        dbProcessingTime.record(timeout, TimeUnit.MILLISECONDS)
 
                         if (deferred.isCompleted) {
                             publish(item.value.mutateData(BatchBuilder.build { rollback() }), AppConf.redis.db)
@@ -82,7 +89,7 @@ open class PubSubService(val serviceName: String, di: DI) : KodeinService(di) {
                         val result = try {
                             item.value.parseDb()
                         } catch (e: Exception) {
-                            Logger.debugException("Failed to parse db response", e, "db")
+                            Logger.debugException("Failed to parse db response. Response: \n ${item.value}", e, "database", item.value.action)
                             null
                         }
 

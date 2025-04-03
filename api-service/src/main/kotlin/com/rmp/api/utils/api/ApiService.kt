@@ -1,17 +1,27 @@
 package com.rmp.api.utils.api
 
+import com.rmp.api.prometheusRegistry
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.modules.auth.dto.AuthorizedUser
 import com.rmp.lib.utils.redis.*
+import io.micrometer.core.instrument.Timer
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.actor
 import org.kodein.di.DI
+import java.util.concurrent.TimeUnit
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
 
-class ApiService(di: DI): PubSubService(AppConf.redis.api, di) {
+class ApiService(di: DI): PubSubService(AppConf.redis.api, prometheusRegistry, di) {
     private val awaited: MutableMap<String, CompletableDeferred<String>> = mutableMapOf()
+    private val time: MutableMap<String, Long> = mutableMapOf()
+    private val executionTime = Timer
+        .builder("request-total-processing-time")
+//        .publishPercentileHistogram(true)
+        .publishPercentiles(0.5, 0.95, 0.99)
+        .register(prometheusRegistry)
+
 
     sealed class ApiEvent(val redisEvent: RedisEvent) {
         class IncomingEvent(
@@ -34,8 +44,10 @@ class ApiService(di: DI): PubSubService(AppConf.redis.api, di) {
 
                     if (awaited.containsKey(action)) {
                         val deferred = awaited[action]!!
+                        executionTime.record(System.currentTimeMillis() - time[action]!!, TimeUnit.MILLISECONDS)
                         deferred.complete(item.redisEvent.data)
                     }
+
                 }
 
                 is ApiEvent.OutcomeEvent -> {
@@ -43,7 +55,8 @@ class ApiService(di: DI): PubSubService(AppConf.redis.api, di) {
                     while (action in awaited) action = "${Uuid.random()}-${item.redisEvent.eventType}"
                     item.redisEvent.action = action
 
-                    awaited += Pair(item.redisEvent.action, item.onComplete)
+                    time += item.redisEvent.action to System.currentTimeMillis()
+                    awaited += item.redisEvent.action to item.onComplete
 
                     publish(item.redisEvent, item.to)
                 }

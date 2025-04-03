@@ -54,7 +54,8 @@ class Pool private constructor() {
                         println("Bot#${it.id} failed")
                     }
                 }
-                delay(Random.nextLong(50..100L))
+//                delay(Random.nextLong(200..250L))
+                delay(Random.nextLong(25..50L))
             }
         }
         println("$poolName execution time: ${System.currentTimeMillis() - now} ms")

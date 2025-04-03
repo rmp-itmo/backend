@@ -136,3 +136,19 @@ class BoolColumn: ColumnType<Boolean>() {
     override fun write(value: Boolean): String = value.toString()
 
 }
+
+class DateTimeColumn: ColumnType<String>() {
+    override val sqlRepresentationName: MutableMap<DbType, String>
+        get() = mutableMapOf(
+            DbType.CLICKHOUSE to "DateTime",
+            DbType.PGSQL to "",
+        )
+
+    override fun readValue(value: Any): String =
+        when (value) {
+            is String -> value
+            else -> throw Exception("Unexpected value $value for type DateTime")
+        }
+
+    override fun write(value: String): String = value
+}

@@ -25,19 +25,18 @@ import com.rmp.lib.utils.korm.TableRegister
 import com.rmp.lib.utils.korm.query.BatchQuery
 import com.rmp.lib.utils.korm.query.QueryDto
 import com.rmp.lib.utils.korm.query.QueryResult
-import com.rmp.lib.utils.log.Logger
-import com.rmp.lib.utils.redis.PubSubService
-import com.rmp.lib.utils.redis.RedisEvent
-import com.rmp.lib.utils.redis.RedisSubscriber
-import com.rmp.lib.utils.redis.subscribe
+import com.rmp.lib.utils.metrics.MetricsProvider
+import com.rmp.lib.utils.redis.*
 import com.rmp.tm.conf.ServiceConf
 import com.rmp.tm.korm.TransactionManager
+import io.micrometer.prometheusmetrics.PrometheusConfig
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import kotlinx.coroutines.*
 import org.kodein.di.DI
 import org.kodein.di.instance
-import kotlin.uuid.ExperimentalUuidApi
 
-@OptIn(ExperimentalUuidApi::class)
+val prometheusMeterRegistry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
+
 fun main() {
     TransactionManager.init {
         jdbcUrl = ServiceConf.dbConf.jdbcUrl
@@ -62,7 +61,7 @@ fun main() {
     TableRegister.register(DbType.PGSQL, UserSubsModel, PostModel, UserUpvoteModel, TargetLogModel)
 
     val kodein = DI {
-        bindSingleton { PubSubService(AppConf.redis.db, it) }
+        bindSingleton { PubSubService(AppConf.redis.db, prometheusMeterRegistry, it) }
     }
 
     runBlocking {
@@ -188,6 +187,7 @@ fun main() {
         }
 
         coroutineScope {
+            val pubSubService by kodein.instance<PubSubService>()
             val handler = object : RedisSubscriber() {
                 override fun onMessage(redisEvent: RedisEvent?, channel: String, message: String) {
                     if (redisEvent == null) {
@@ -198,7 +198,7 @@ fun main() {
 
                     if (tryDecode == null) return
 
-                    launch(context = Dispatchers.Default) {
+                    launch(context = Dispatchers.IO.limitedParallelism(Int.MAX_VALUE)) {
                         when (tryDecode) {
                             is BatchQuery -> {
                                 TransactionManager.process(redisEvent, tryDecode)
@@ -212,17 +212,14 @@ fun main() {
                 }
             }
 
-            withContext(Dispatchers.IO) {
+            withContext(Dispatchers.IO.limitedParallelism(Int.MAX_VALUE)) {
                 launch {
-                    val pubSubService: PubSubService by kodein.instance()
-
                     while (true) {
                         val state = TransactionManager.processedChannel.tryReceive().getOrNull() ?: continue
 
                         val event = state.redisEvent
                         val sender = state.redisEvent.from
 
-                        Logger.debug("PUBLISH ${event.action}")
                         pubSubService.publish(
                             event.mutateData(QueryResult(state.executionResult)),
                             sender
@@ -231,10 +228,7 @@ fun main() {
                 }
 
                 launch {
-                    while (true) {
-                        TransactionManager.renderActive()
-                        delay(5_000)
-                    }
+                    MetricsProvider.start(prometheusMeterRegistry)
                 }
 
                 subscribe(handler, true, AppConf.redis.db)

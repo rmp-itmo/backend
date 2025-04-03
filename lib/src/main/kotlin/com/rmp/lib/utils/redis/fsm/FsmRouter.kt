@@ -26,7 +26,7 @@ class FsmRouter(override val di: DI) : DIAware {
         fun routing(serviceName: String, di: DI, configure: FsmRouter.() -> Unit): FsmRouter =
             FsmRouter(di).apply(configure).apply {
                 handle<BaseException> { exception ->
-                    Logger.debugException("${exception::class.simpleName} caught!", exception, serviceName)
+                    Logger.debugException("${exception::class.simpleName} caught!", exception, serviceName, action)
                     fsmService.apply {
                         switchOnApi(exception)
                     }
@@ -34,7 +34,7 @@ class FsmRouter(override val di: DI) : DIAware {
 
                 if (Exception::class !in exceptionHandlers) {
                     handle<Exception> { exception ->
-                        Logger.debugException("${exception::class.qualifiedName} caught!", exception, serviceName)
+                        Logger.debugException("${exception::class.qualifiedName} caught!", exception, serviceName, action)
                         fsmService.apply {
                             switchOnApi(InternalServerException(exception.message ?: "Internal server error"))
                         }

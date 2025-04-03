@@ -5,8 +5,8 @@ import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.RedisEventState
 import com.rmp.lib.utils.redis.SerializableClass
 import com.rmp.lib.utils.serialization.Json
-import io.github.crackthecodeabhi.kreds.connection.Endpoint
-import io.github.crackthecodeabhi.kreds.connection.newClient
+import io.lettuce.core.RedisClient
+import io.lettuce.core.pubsub.api.sync.RedisPubSubCommands
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ObsoleteCoroutinesApi
@@ -19,7 +19,9 @@ import kotlin.uuid.ExperimentalUuidApi
 
 @OptIn(ExperimentalUuidApi::class)
 object Logger {
-    private val pubClient = newClient(Endpoint(AppConf.redis.host, AppConf.redis.port))
+    private val pubClient: RedisPubSubCommands<String, String> by lazy {
+        RedisClient.create("redis://${AppConf.redis.host}:${AppConf.redis.port}").connectPubSub().sync()
+    }
 
     val serviceName = AppConf.logger.serviceName
 
@@ -51,6 +53,7 @@ object Logger {
             override val prefix: String,
             override val data: String,
             override val severity: String,
+            val actionId: String,
         ): LogEvent(LogEventType.SIMPLE)
 
         @Serializable
@@ -61,6 +64,7 @@ object Logger {
             override val data: String,
             val cause: String,
             val stacktrace: String,
+            val actionId: String,
             override val severity: String = "DEBUG",
         ): LogEvent(LogEventType.EXCEPTION)
     }
@@ -68,16 +72,14 @@ object Logger {
     @OptIn(ObsoleteCoroutinesApi::class)
     private val loggerActor = CoroutineScope(Job()).actor<LogEvent>(capacity = Channel.UNLIMITED) {
         for (event in this) {
-            pubClient.use {
-                val re = RedisEvent(
-                    "log-${System.nanoTime()}",
-                    serviceName,
-                    "log",
-                    RedisEventState("", ""),
-                    Json.serializer.encodeToString(event)
-                )
-                it.publish(AppConf.redis.logger, Json.serializer.encodeToString(re))
-            }
+            val re = RedisEvent(
+                "log-${System.nanoTime()}",
+                serviceName,
+                "log",
+                RedisEventState("", ""),
+                Json.serializer.encodeToString(event)
+            )
+            pubClient.publish(AppConf.redis.logger, Json.serializer.encodeToString(re))
         }
     }
 
@@ -88,8 +90,7 @@ object Logger {
         "trace" to LoggerFactory.getLogger("Trace"),
     )
 
-    fun debug(message: Any?, prefix: String = "main") {
-        if (prefix == "database") return
+    fun debug(message: Any?, prefix: String = "main", action: String = "") {
         val messageSerializable = message != null && message::class.annotations.any { it.annotationClass == Serializable::class }
 
         val simpleLogEvent = LogEvent.SimpleLogEvent(
@@ -98,10 +99,10 @@ object Logger {
             prefix,
             if (messageSerializable) Json.serializer.encodeToString(message)
             else message.toString(),
-            "DEBUG"
+            "DEBUG",
+            action
         )
-
-        loggerActor.trySend(simpleLogEvent)
+        if (action != "") loggerActor.trySend(simpleLogEvent)
         logger[prefix].let {
             val logger = if (it == null) {
                 logger["main"]!!.debug("Logger $prefix not found")
@@ -111,14 +112,15 @@ object Logger {
         }
     }
 
-    fun debugException(message: Any?, cause: Throwable, prefix: String) {
+    fun debugException(message: Any?, cause: Throwable, prefix: String, action: String) {
         val simpleLogEvent = LogEvent.ExceptionLogEvent(
             System.currentTimeMillis(),
             serviceName,
             prefix,
             message.toString(),
             cause.message ?: cause.toString(),
-            cause.stackTraceToString()
+            cause.stackTraceToString(),
+            action
         )
         loggerActor.trySend(simpleLogEvent)
 
@@ -153,7 +155,7 @@ object Logger {
 
         loggerActor.trySend(traceLogEvent)
 
-//        logger["trace"]!!.info(info)
+        logger["trace"]!!.info(info)
     }
 
     fun traceEventReceived(redisEvent: RedisEvent) {
