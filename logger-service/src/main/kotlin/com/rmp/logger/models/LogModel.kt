@@ -1,12 +1,13 @@
 package com.rmp.logger.models
 
 import com.rmp.lib.utils.korm.Table
+import java.time.LocalDateTime
 
 object LogModel: Table("logger") {
     val type = text("type")
-    val ts = long("ts")
+    val ts = dateTime("timestamp").default(LocalDateTime.now().toString().split(".").first())
+    val labels = text("labels")
     val sender = text("sender")
-    val prefix = text("prefix")
     val message = text("message")
     val severity = text("severity")
     val cause = text("cause").nullable()

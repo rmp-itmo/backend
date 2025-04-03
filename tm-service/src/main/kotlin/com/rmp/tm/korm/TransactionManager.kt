@@ -9,14 +9,16 @@ import com.rmp.lib.utils.korm.query.batch.BatchBuilder
 import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.RedisEventState
+import com.rmp.tm.prometheusMeterRegistry
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
+import io.micrometer.core.instrument.Timer
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.actor
-import kotlinx.coroutines.time.withTimeout
 import org.postgresql.util.PSQLException
 import java.sql.Connection
+import java.util.concurrent.TimeUnit
 import kotlin.uuid.ExperimentalUuidApi
 
 data class ProcessingState(
@@ -29,17 +31,10 @@ data class ProcessingState(
 object TransactionManager {
     private lateinit var ds: HikariDataSource
 
-    private var maximumPoolSize = 10
+    private var maximumPoolSize = 90
     private val active: MutableMap<String, Connection> = mutableMapOf()
 
     private val pending: ArrayDeque<ConnectionEvent> = ArrayDeque()
-
-    fun renderActive() {
-//        Logger.debug("CURRENT ACTIVE CONNECTIONS: ", "database")
-//        Logger.debug("$active", "database")
-        Logger.debug("CURRENT ACTIVE CONNECTIONS: ")
-        Logger.debug("$active")
-    }
 
     fun init(config: HikariConfig.() -> Unit) {
         ds = HikariDataSource(HikariConfig().apply(config).apply {
@@ -60,7 +55,7 @@ object TransactionManager {
         TableRegister.tables.forEach { (_, entry) ->
             val (type, table) = entry
             val query = table.initTable(dbType = type, forceRecreate = forceRecreate && table !in excludedFromRecreation)
-            Logger.debug("Init table ${table.tableName_} - ${query.sql} $connection", "database")
+//            Logger.debug("Init table ${table.tableName_} - ${query.sql} $connection", "database")
             try {
                 executeNoResult(state, query, query.queryParseData ?: mutableMapOf())
             } catch (e: PSQLException) {
@@ -80,15 +75,14 @@ object TransactionManager {
         active -= dummyEvent.action
 
         val query = BatchBuilder.buildAutoCommit(initScript ?: return)
-        val result = process(dummyEvent, query)
-        Logger.debug(result)
+        process(dummyEvent, query)
     }
 
     val processedChannel: Channel<ProcessingState> = Channel(capacity = Channel.UNLIMITED)
 
     sealed class ConnectionEvent(val state: ProcessingState, val finished: CompletableDeferred<Unit>) {
 //        class GetConnection(state: ProcessingState, finished: CompletableDeferred<Unit>): ConnectionEvent(state, finished)
-        class InitConnection(val connection: Connection? = null, state: ProcessingState, finished: CompletableDeferred<Unit>): ConnectionEvent(state, finished)
+        class InitConnection(state: ProcessingState, finished: CompletableDeferred<Unit>): ConnectionEvent(state, finished)
         class Commit(state: ProcessingState, finished: CompletableDeferred<Unit>): ConnectionEvent(state, finished)
         class Rollback(state: ProcessingState, finished: CompletableDeferred<Unit>): ConnectionEvent(state, finished)
     }
@@ -107,12 +101,9 @@ object TransactionManager {
         if (!connection.isClosed) {
             connection.commit()
             connection.close()
-//            Logger.debug("COMMIT SUCCEED! CONNECTION $tid", "database")
-            Logger.debug("COMMIT SUCCEED! CONNECTION $action")
+            Logger.debug("COMMIT SUCCEED! CONNECTION $action", "database")
         } else {
-//            Logger.debug("COMMIT FAILED! CONNECTION $tid CLOSED", "database")
-            Logger.debug("COMMIT FAILED! CONNECTION $action CLOSED")
-            Logger.debug("$connection", "database")
+            Logger.debug("COMMIT FAILED! CONNECTION $action CLOSED", "database")
         }
     }
 
@@ -120,12 +111,9 @@ object TransactionManager {
         if (!connection.isClosed) {
             connection.rollback()
             connection.close()
-//            Logger.debug("ROLLBACK SUCCEED! CONNECTION $tid", "database")
-            Logger.debug("ROLLBACK SUCCEED! CONNECTION $action")
+            Logger.debug("ROLLBACK SUCCEED!", "database", action)
         } else {
-//            Logger.debug("ROLLBACK FAILED! CONNECTION $tid CLOSED", "database")
-            Logger.debug("ROLLBACK FAILED! CONNECTION $action CLOSED")
-            Logger.debug("$connection", "database")
+            Logger.debug("ROLLBACK FAILED! CONNECTION CLOSED", "database", action)
         }
     }
 
@@ -138,13 +126,10 @@ object TransactionManager {
     private suspend fun processConnectionEvent(ev: ConnectionEvent) {
         val action = ev.state.redisEvent.action
 
-        Logger.debug("[${ev::class.simpleName}] on process. ACTION: $action")
-
         when (ev) {
             is ConnectionEvent.InitConnection -> {
                 if (active.size >= maximumPoolSize) {
                     pending += ev
-                    Logger.debug("move to pending. ACTION: $action")
                     return
                 }
 
@@ -152,20 +137,17 @@ object TransactionManager {
 
                 if (connection == null) {
                     pending += ev
-                    Logger.debug("move to pending due to timeout. ACTION: $action")
                     return
                 }
 
                 active += action to connection
                 ev.state.connection = connection
 
-                Logger.debug("Connection initialized. ACTION: $action")
-
                 ev.finished.complete(Unit)
             }
             is ConnectionEvent.Commit -> {
                 val connection = ev.state.connection.let {
-                    if (it == null) Logger.debug("COMMIT FAILED! NO OPEN CONNECTION", "database")
+                    if (it == null) Logger.debug("COMMIT FAILED! NO OPEN CONNECTION", "database", action)
                     it
                 } ?: return
 
@@ -178,7 +160,7 @@ object TransactionManager {
             }
             is ConnectionEvent.Rollback -> {
                 val connection = ev.state.connection.let {
-                    if (it == null) Logger.debug("ROLLBACK FAILED! NO OPEN CONNECTION", "database")
+                    if (it == null) Logger.debug("ROLLBACK FAILED! NO OPEN CONNECTION", "database", action)
                     it
                 } ?: return
 
@@ -212,7 +194,7 @@ object TransactionManager {
                 stmt.generatedKeys
             }
         } catch (e: Exception) {
-            Logger.debugException("Failed to process query", e, "database")
+            Logger.debugException("Failed to process query ${query.sql}, params: ${query.params}", e, "database", state.redisEvent.action)
             rollback(state.redisEvent.action, connection)
             return emptyList()
         }
@@ -222,7 +204,7 @@ object TransactionManager {
             result += RowDto.build(rs, columns)
         }
 
-        Logger.debug("Execution time: ${System.currentTimeMillis() - start} (${query.sql})", "database")
+        Logger.debug("(${query.sql}) execution time: ${System.currentTimeMillis() - start}", "database", state.redisEvent.action)
 
         return result
     }
@@ -236,12 +218,12 @@ object TransactionManager {
         val result = try {
             stmt.executeUpdate()
         } catch (e: Exception) {
-            Logger.debugException("Failed to process query", e, "database")
+            Logger.debugException("Failed to process query", e, "database", state.redisEvent.action)
             rollback(state.redisEvent.action, connection)
             throw e
         }
 
-        Logger.debug("QUERY<${state.redisEvent.action}>: Execution time: ${System.currentTimeMillis() - start}, ${query.sql} result - $result", "database")
+        Logger.debug("(${query.sql}) execution time: ${System.currentTimeMillis() - start}", "database", state.redisEvent.action)
 
         val tableName = queryParseData.keys.firstOrNull() ?: ""
 
@@ -251,39 +233,27 @@ object TransactionManager {
         }
     }
 
+    val processingTimer = Timer
+        .builder("db-internal-process-time")
+        .publishPercentiles(0.5, 0.95, 0.99)
+        .register(prometheusMeterRegistry)
+
     suspend fun process(redisEvent: RedisEvent, batch: BatchQuery) {
+        val time = System.currentTimeMillis()
         val state = ProcessingState(redisEvent)
-//        val finished = CompletableDeferred<Unit>()
-//
-//        connectionActor.send(ConnectionEvent.GetConnection(state, finished))
-//        Logger.debug("start processing ${redisEvent.action}")
-//        Logger.debug("Active connections $active")
 
         if (redisEvent.action in active) {
             state.connection = active[redisEvent.action]!!
-            Logger.debug("Connection restored. ACTION: ${redisEvent.action}")
+            Logger.debug("Connection restored. ACTION: ${redisEvent.action}", "database", action = redisEvent.action)
         }
 
-//        finished.await()
-
         state.executionResult = batch.queries.mapNotNull { (label, query) ->
-//            Logger.debug("[${QueryType.getByValue(query.queryType)}] ${query.sql} ${query.params}, ACTION=${redisEvent.action}, Conn=${state.connection}", "database")
-            Logger.debug("[${QueryType.getByValue(query.queryType)}] ${query.sql} ${query.params}, ACTION=${redisEvent.action}, Conn=${state.connection}")
+            Logger.debug("[${QueryType.getByValue(query.queryType)}] ${query.sql} ${query.params}, Conn=${state.connection}", "database", redisEvent.action)
 
             val executionResult = when (QueryType.getByValue(query.queryType)) {
                 QueryType.INIT -> {
                     val connectionInit = CompletableDeferred<Unit>()
-//                    var connection = try {
-//                            ds.connection
-//                        } catch (e: Exception) {
-//                            Logger.debug(e.stackTraceToString())
-//                            null
-//                        }
-//                    if (connection == null) {
-//                        Logger.debug("Failed to init connection")
-//                        return@mapNotNull null
-//                    }
-                    connectionActor.send(ConnectionEvent.InitConnection(null, state, connectionInit))
+                    connectionActor.send(ConnectionEvent.InitConnection(state, connectionInit))
                     connectionInit.await()
                     null
                 }
@@ -324,7 +294,7 @@ object TransactionManager {
                 }
 
                 else -> {
-                    Logger.debug("Unknown query type ${query.queryType}", "database")
+                    Logger.debug("Unknown query type ${query.queryType}", "database", redisEvent.action)
                     null
                 }
             }
@@ -332,6 +302,7 @@ object TransactionManager {
             executionResult
         }.toMap()
 
+        processingTimer.record(System.currentTimeMillis() - time, TimeUnit.MILLISECONDS)
         processedChannel.send(state)
     }
 

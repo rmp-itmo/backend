@@ -1,6 +1,10 @@
 application {
-    server {
-      host = "localhost"
-      port = 8080
-    }
+  loggerConf {
+    serviceName = "api-service"
+  }
+
+  server {
+    host = "localhost"
+    port = 8080
+  }
 }

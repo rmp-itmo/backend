@@ -29,6 +29,8 @@ open class Table(val tableName_: String) {
 
     fun autoInc(name: String): Column<Long> = createColumn(name, SerialColumn())
 
+    fun dateTime(name: String): Column<String> = createColumn(name, DateTimeColumn())
+
     fun <T> Column<T>.nullable(): Column<T?> {
         val col = Column<T?>(this@Table, type, name).apply {
             type.nullable = true

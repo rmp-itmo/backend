@@ -7,11 +7,10 @@ import io.ktor.server.plugins.callloging.*
 import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import org.slf4j.event.*
 
-fun Application.configureMonitoring() {
+fun Application.configureMonitoring(registry: PrometheusMeterRegistry) {
     install(CallLogging) {
         level = Level.INFO
         filter { call -> call.request.path().startsWith("/") }
@@ -23,15 +22,10 @@ fun Application.configureMonitoring() {
             callId.isNotEmpty()
         }
     }
-    val appMicrometerRegistry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
 
-//    install(MicrometerMetrics) {
-//        registry = appMicrometerRegistry
-//        // ...
-//    }
     routing {
         get("/metrics-micrometer") {
-            call.respond(appMicrometerRegistry.scrape())
+            call.respond(registry.scrape())
         }
     }
 }

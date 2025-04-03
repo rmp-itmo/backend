@@ -11,7 +11,6 @@ import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.column.less
 import com.rmp.lib.utils.korm.insert
 import com.rmp.lib.utils.korm.references.JoinType
-import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
 import com.rmp.lib.utils.security.bcrypt.CryptoUtil
@@ -33,6 +32,8 @@ class UserService(di: DI): FsmService(di) {
 
         checkEmail(redisEvent, data.email)
 
+//        redisEvent.switchOnApi(Response(true, "success"))
+//        return
 
         val select = newAutoCommitTransaction(redisEvent) {
             this add UserActivityLevelModel
@@ -334,14 +335,11 @@ class UserService(di: DI): FsmService(di) {
             (currentCalories - data.calories).let { if (it < 0) 0.0 else it }
         }
 
-        val updated = autoCommitTransaction(redisEvent) {
+        autoCommitTransaction(redisEvent) {
             this add UserModel.update(UserModel.id eq user.id) {
                 this[UserModel.caloriesCurrent] = newCalories
             }
-        }[UserModel]
-
-        Logger.debug(updated)
-        Logger.debug(updated!!.first()[UserModel.updateCount])
+        }
 
         redisEvent.switchOnApi(CurrentCaloriesOutputDto(newCalories))
     }
@@ -355,8 +353,6 @@ class UserService(di: DI): FsmService(di) {
 
         val result = items.mapIndexed { index, (column, _) ->
             val data = countData["count-less-$index"]?.firstOrNull() ?: throw InternalServerException("Count failed")
-            Logger.debug("STREAK ${column.name}")
-            Logger.debug(data[UserAchievementsModel.entityCount])
             column to ((data[UserAchievementsModel.entityCount].toDouble() / (countAll - 1).toDouble()) * 100).roundToInt()
         }.toMap()
 

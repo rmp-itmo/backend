@@ -26,21 +26,24 @@ import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.kodein.bindSingleton
 import com.rmp.lib.utils.korm.DbType
 import com.rmp.lib.utils.korm.TableRegister
+import com.rmp.lib.utils.metrics.MetricsProvider
 import com.rmp.lib.utils.redis.PubSubService
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.RedisSubscriber
 import com.rmp.lib.utils.redis.fsm.FsmRouter
 import com.rmp.lib.utils.redis.subscribe
+import io.micrometer.prometheusmetrics.PrometheusConfig
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
+import kotlinx.coroutines.*
 
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import org.kodein.di.DI
 import org.kodein.di.instance
 
+val prometheusMeterRegistry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
+
 fun main() {
     val kodein = DI {
-        bindSingleton { PubSubService(AppConf.redis.diet, it) }
+        bindSingleton { PubSubService(AppConf.redis.diet, prometheusMeterRegistry, it) }
         bindSingleton { DietLogService(it) }
         bindSingleton { DishService(it) }
         bindSingleton { MenuService(it) }
@@ -75,17 +78,25 @@ fun main() {
 
     runBlocking {
         coroutineScope {
-            subscribe(object : RedisSubscriber() {
+            val handler = object : RedisSubscriber() {
                 override fun onMessage(redisEvent: RedisEvent?, channel: String, message: String) {
                     if (redisEvent == null) {
                         throw Exception("Unknown event in $channel ($message)")
                     }
 
-                    launch {
+                    launch(context = Dispatchers.IO.limitedParallelism(Int.MAX_VALUE)) {
                         router.process(redisEvent)
                     }
                 }
-            }, true, AppConf.redis.diet)
+            }
+
+            withContext(Dispatchers.IO) {
+                launch {
+                    MetricsProvider.start(prometheusMeterRegistry)
+                }
+            }
+
+            subscribe(handler, true, AppConf.redis.diet)
         }
     }
 }

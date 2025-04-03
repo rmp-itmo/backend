@@ -6,7 +6,7 @@ import kotlinx.coroutines.runBlocking
 
 fun main() {
     val pool = Pool {
-        append(HelloRoutine.routine, 500)
+        append(HelloRoutine.routine, 3000)
     }
 
     runBlocking {

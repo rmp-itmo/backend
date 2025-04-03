@@ -7,7 +7,13 @@ import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
 import com.rmp.logger.ConnectionManager
 import com.rmp.logger.models.LogModel
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.kodein.di.DI
+import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneOffset
+import java.util.*
 
 class LoggerService(di: DI): FsmService(di) {
     fun processEvent(redisEvent: RedisEvent) {
@@ -18,11 +24,16 @@ class LoggerService(di: DI): FsmService(di) {
             redisEvent.parseData<Logger.LogEvent>() ?: return
 
         val query: QueryDto = LogModel.insert {
-
-            it[ts] = logEvent.ts
-            it[sender] = logEvent.sender
-            it[prefix] = logEvent.prefix
-            it[message] = logEvent.data
+            val localDateTime = LocalDateTime.ofInstant(
+                Instant.ofEpochMilli(logEvent.ts),
+                ZoneOffset.UTC
+            )
+            it[ts] = localDateTime.toString().split(".").first()
+            it[labels] = buildJsonObject {
+                put("sender", logEvent.sender)
+                put("prefix", logEvent.prefix)
+            }.toString()
+            it[message] = "${logEvent.prefix.uppercase(Locale.getDefault())} [${logEvent.sender}] ${logEvent.data}"
             it[severity] = logEvent.severity
 
             when (logEvent) {

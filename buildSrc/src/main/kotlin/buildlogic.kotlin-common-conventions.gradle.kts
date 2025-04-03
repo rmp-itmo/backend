@@ -1,5 +1,3 @@
-import gradle.kotlin.dsl.accessors._2c3af771d8bff67d86217fd21a9af7e3.implementation
-
 val kotlinVersion: String by project
 val kotlinxCoroutinesVersion: String by project
 val kotlinxSerializationVersion: String by project
@@ -13,7 +11,6 @@ val typesafeVersion: String by project
 val config4kVersion: String by project
 
 val jbcryptVersion: String by project
-val kredsVersion: String by project
 
 plugins {
     kotlin("jvm")
@@ -43,6 +40,7 @@ dependencies {
     //Logging and metrics
     implementation("ch.qos.logback:logback-classic:$logbackVersion")
     implementation("io.micrometer:micrometer-registry-prometheus:$prometeusVersion")
+    implementation("io.micrometer:micrometer-core:1.11.0")
 
     //Kotlinx coroutines
     runtimeOnly(kotlin("reflect", kotlinVersion))
@@ -54,7 +52,8 @@ dependencies {
     //Crypto
     implementation("org.mindrot:jbcrypt:$jbcryptVersion")
 
-    implementation("io.github.crackthecodeabhi:kreds:$kredsVersion")
+    implementation("io.lettuce:lettuce-core:6.5.5.RELEASE")
+    implementation("org.eclipse.jetty:jetty-server:11.0.15")
 
     implementation("org.reflections:reflections:0.9.12")
 

@@ -3,6 +3,8 @@ application {
   fileLocation = "/home"
   zoneOffset = 3
   sleepTarget = 8
+  metrics = false // If true, every service will exposed prometheus metrics on 8080 port
+  metricsPort = 8080
 
   jwt {
     domain = "localhost" //Domain to create JWT on

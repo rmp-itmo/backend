@@ -90,7 +90,9 @@ data class RedisEvent (
             Json.serializer.decodeFromString<T>(data)
         } catch (e: Exception) {
             if (!silent)
-                Logger.debugException("Data parsing failed for event $this", e, "main")
+                Logger.debugException("Data parsing failed for event \n" +
+                        " should be ${T::class.simpleName}, \n" +
+                        " found: $data", e, "main", action)
             null
         }
 
@@ -100,7 +102,7 @@ data class RedisEvent (
                 Json.serializer.decodeFromString<T>(eventState.stateData)
             } catch (e: Exception) {
                 if (!silent)
-                    Logger.debugException("State parsing failed for event $this", e, "main")
+                    Logger.debugException("State parsing failed for event \n should be ${T::class.simpleName}, \n found: ${eventState.state}", e, "main", action)
                 null
             }
         else null

@@ -3,53 +3,54 @@ package com.rmp.lib.utils.redis
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.serialization.Json
-import io.github.crackthecodeabhi.kreds.connection.AbstractKredsSubscriber
-import io.github.crackthecodeabhi.kreds.connection.Endpoint
-import io.github.crackthecodeabhi.kreds.connection.KredsSubscriber
-import io.github.crackthecodeabhi.kreds.connection.newSubscriberClient
+import io.lettuce.core.RedisClient
+import io.lettuce.core.pubsub.RedisPubSubListener
+import io.lettuce.core.pubsub.StatefulRedisPubSubConnection
+import io.lettuce.core.pubsub.api.sync.RedisPubSubCommands
 import kotlinx.coroutines.*
 import kotlin.time.Duration
 
-abstract class RedisSubscriber: AbstractKredsSubscriber() {
-    override fun onPSubscribe(pattern: String, subscribedChannels: Long) {
-        Logger.debug("PSubscribed to channel: $pattern")
-    }
 
-    override fun onPMessage(pattern: String, channel: String, message: String) {}
+suspend fun subscribe(redisSubscriber: RedisSubscriber, blocking: Boolean = true, channel: String) {
+    val client: RedisClient = RedisClient.create("redis://${AppConf.redis.host}:${AppConf.redis.port}")
 
-    override fun onSubscribe(channel: String, subscribedChannels: Long) {
-        Logger.debug("Subscribed to channel: $channel")
-    }
+    val connection: StatefulRedisPubSubConnection<String, String> = client.connectPubSub()
+    connection.addListener(redisSubscriber)
 
-    override fun onUnsubscribe(channel: String, subscribedChannels: Long) {
-        Logger.debug("Unsubscribed from channel: $channel")
-    }
+    val sync: RedisPubSubCommands<String, String>  = connection.sync()
+    sync.subscribe(channel)
 
-    override fun onException(ex: Throwable) {
-        TODO("Not yet implemented")
-    }
+    if (blocking) delay(Duration.INFINITE)
+}
 
-    override fun onMessage(channel: String, message: String) {
+
+abstract class RedisSubscriber: RedisPubSubListener<String, String> {
+    override fun message(channel: String?, message: String?) {
+        if (channel == null || message == null) return
+
         val redisEvent = try {
             val event = Json.serializer.decodeFromString<RedisEvent>(message)
             Logger.traceEventReceived(event)
             event
         } catch (e: IllegalArgumentException) {
-            Logger.debugException("Failed to parse redis event", e, "trace")
+            Logger.debugException("Failed to parse redis event", e, "trace", "")
             null
         }
 
         onMessage(redisEvent, channel, message)
     }
 
-    abstract fun onMessage(redisEvent: RedisEvent?, channel: String, message: String)
-}
+    override fun message(var1: String?, var2: String?, var3: String?) {}
 
-suspend fun CoroutineScope.subscribe(handler: KredsSubscriber, blocking: Boolean = true, vararg channels: String) = withContext(coroutineContext) {
-    newSubscriberClient(Endpoint(AppConf.redis.host, AppConf.redis.port), handler).use { client ->
-        channels.forEach { client.subscribe(it) }
-        if (blocking) {
-            delay(Duration.INFINITE)
-        }
+    override fun subscribed(channel: String?, subscribers: Long) {
+        Logger.debug("Subscribed to channel: $channel")
     }
+
+    override fun psubscribed(var1: String?, var2: Long) {}
+
+    override fun unsubscribed(var1: String?, var2: Long) {}
+
+    override fun punsubscribed(var1: String?, var2: Long) {}
+
+    abstract fun onMessage(redisEvent: RedisEvent?, channel: String, message: String)
 }

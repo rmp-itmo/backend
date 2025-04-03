@@ -12,16 +12,20 @@ import com.rmp.lib.utils.redis.subscribe
 import com.rmp.logger.actions.LoggerFsm
 import com.rmp.logger.models.LogModel
 import com.rmp.logger.services.LoggerService
+import io.micrometer.prometheusmetrics.PrometheusConfig
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.kodein.di.DI
 import org.kodein.di.instance
 
+val prometheusMeterRegistry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
+
 fun main() {
 
     val kodein = DI {
-        bindSingleton { PubSubService(AppConf.redis.auth, it) }
+        bindSingleton { PubSubService(AppConf.redis.logger, prometheusMeterRegistry, it) }
         bindSingleton { LoggerService(it) }
 
         bindSingleton {
