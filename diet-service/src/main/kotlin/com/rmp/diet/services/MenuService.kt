@@ -267,13 +267,7 @@ class MenuService(di: DI) : FsmService(di) {
         }
 
 
-        val mealId = addMenuItem[UserMenuModel]?.firstOrNull()
-        if (mealId == null) {
-            transaction(redisEvent) {
-                rollback()
-            }
-            throw BadRequestException("Unknown meal id")
-        }
+        addMenuItem[UserMenuModel]?.firstOrNull() ?: throw BadRequestException("Unknown meal id")
 
         val log = addMenuItem["add-menu-item"]?.firstOrNull() ?: throw InternalServerException("Insert failed")
 

@@ -7,7 +7,13 @@ import com.rmp.lib.utils.korm.TableRegister
 import com.rmp.lib.utils.korm.query.QueryResult
 import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.serialization.Json
-import kotlinx.serialization.Serializable
+import kotlinx.serialization.*
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 class DbResponseData(val value: Map<String, List<Row>>) {
     operator fun <T: Table> get(table: T): List<Row>? {
@@ -19,27 +25,38 @@ class DbResponseData(val value: Map<String, List<Row>>) {
     }
 }
 
+@OptIn(ExperimentalUuidApi::class)
+object UuidSerializer : KSerializer<Uuid?> {
+    override val descriptor: SerialDescriptor
+        get() = Uuid.serializer().descriptor
+
+    override fun deserialize(decoder: Decoder): Uuid? {
+        return try {
+            Uuid.serializer().deserialize(decoder)
+        } catch (_: Exception) {null}
+    }
+
+    @OptIn(ExperimentalSerializationApi::class)
+    override fun serialize(encoder: Encoder, value: Uuid?) {
+        if (value == null) encoder.encodeNull()
+        else Uuid.serializer().serialize(encoder, value)
+    }
+}
+
+@OptIn(ExperimentalUuidApi::class)
 @Serializable
 data class RedisEvent (
-    val action: String,
+    var action: String,
     var from: String,
     val eventType: String,
     val eventState: RedisEventState,
     val data: String,
     val authorizedUser: AuthorizedUser? = null,
-    var tid: String? = null,
-    val dbRequest: Long? = null
+    @Serializable(with = UuidSerializer::class)
+    var tid: Uuid? = null,
+    @Serializable(with = UuidSerializer::class)
+    var dbRequest: Uuid? = null
 ): SerializableClass {
-    inline fun <reified T: SerializableClass> mutateData(data: T, tid: String? = null): RedisEvent {
-        if (!data::class.annotations.any {
-            it.annotationClass == Serializable::class
-        })
-            throw Exception("Data must be serializable")
-        return RedisEvent(
-            action, from, eventType, eventState, Json.serializer.encodeToString(data), authorizedUser, tid, dbRequest
-        )
-    }
-
     inline fun <reified T: SerializableClass> mutateData(data: T): RedisEvent {
         if (!data::class.annotations.any {
                 it.annotationClass == Serializable::class
@@ -103,7 +120,7 @@ data class RedisEvent (
         }
     }
 
-    fun forDb(requestId: Long): RedisEvent {
+    fun forDb(requestId: Uuid): RedisEvent {
         return RedisEvent(action, from, eventType, eventState.clearData(), data, null, tid, requestId)
     }
 

@@ -1,30 +1,36 @@
 package com.rmp.lib.utils.redis.fsm
 
+import com.rmp.lib.exceptions.InternalServerException
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.utils.kodein.KodeinService
 import com.rmp.lib.utils.korm.query.Query
 import com.rmp.lib.utils.korm.query.batch.BatchBuilder
+import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.redis.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.time.withTimeout
 import org.kodein.di.DI
 import org.kodein.di.instance
+import kotlin.uuid.ExperimentalUuidApi
 
 abstract class FsmService(di: DI, val channel: String = "service") : KodeinService(di) {
     val pubSubService: PubSubService by instance()
     val fsmRouter: FsmRouter by instance()
 
+    @OptIn(ExperimentalUuidApi::class)
     private suspend inline fun <reified T: Query> RedisEvent.dbRequest(
         queryDto: T
     ): DbResponseData {
-        val id = System.nanoTime()
+        val (idFetched, deferred) = pubSubService.regDbRequest(this)
+        val id = idFetched.await()
         pubSubService.publish(forDb(id).mutateData(queryDto), AppConf.redis.db)
-        val deferred = pubSubService.regDbRequest(id, this)
-
         return try {
-            withTimeout(5_000) {
-                deferred.await()
-            }
+//            withTimeout(DB_REQUEST_TIMEOUT) {
+            deferred.await()
+//            }
         } catch (e: TimeoutCancellationException) {
+            Logger.debug("DB REQUEST $action FAILED DUE TO TIMEOUT")
+            deferred.complete(DbResponseData(mutableMapOf()))
             DbResponseData(mutableMapOf())
         }
     }

@@ -3,12 +3,15 @@ package com.rmp.lib.utils.korm.query
 import com.rmp.lib.utils.korm.RowDto
 import com.rmp.lib.utils.korm.query.batch.BatchEntry
 import com.rmp.lib.utils.redis.SerializableClass
+import com.rmp.lib.utils.redis.UuidSerializer
 import com.rmp.lib.utils.serialization.UltimateSerializer
 import kotlinx.serialization.Serializable
 import java.sql.Connection
 import java.sql.PreparedStatement
 import java.sql.SQLException
 import java.sql.Statement
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
 
 sealed class Query: SerializableClass
 
@@ -50,7 +53,6 @@ data class ExecutionResult(
 
 @Serializable
 data class QueryResult (
-    val tid: String?,
     val result: Map<String, ExecutionResult>
 ): SerializableClass
 

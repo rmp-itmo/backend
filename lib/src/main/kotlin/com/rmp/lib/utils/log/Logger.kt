@@ -14,8 +14,10 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.actor
 import kotlinx.serialization.Serializable
 import org.slf4j.LoggerFactory
+import kotlin.uuid.ExperimentalUuidApi
 
 
+@OptIn(ExperimentalUuidApi::class)
 object Logger {
     private val pubClient = newClient(Endpoint(AppConf.redis.host, AppConf.redis.port))
 
@@ -87,6 +89,7 @@ object Logger {
     )
 
     fun debug(message: Any?, prefix: String = "main") {
+        if (prefix == "database") return
         val messageSerializable = message != null && message::class.annotations.any { it.annotationClass == Serializable::class }
 
         val simpleLogEvent = LogEvent.SimpleLogEvent(
@@ -136,6 +139,7 @@ object Logger {
                     "${redisEvent.eventType}.${redisEvent.eventState.state} <${redisEvent.action}> {\n" +
                         "\tData: ${redisEvent.data} \n" +
                         "\tState: ${redisEvent.eventState.stateData} \n" +
+                        "\tDb Request: ${redisEvent.dbRequest}" +
                     "}"
 
         val traceLogEvent = LogEvent.TraceLogEvent(
@@ -149,7 +153,7 @@ object Logger {
 
         loggerActor.trySend(traceLogEvent)
 
-        logger["trace"]!!.info(info)
+//        logger["trace"]!!.info(info)
     }
 
     fun traceEventReceived(redisEvent: RedisEvent) {
