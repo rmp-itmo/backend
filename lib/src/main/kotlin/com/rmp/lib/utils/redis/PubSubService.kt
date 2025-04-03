@@ -1,7 +1,13 @@
+@file:OptIn(ExperimentalUuidApi::class)
+
 package com.rmp.lib.utils.redis
 
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.utils.kodein.KodeinService
+import com.rmp.lib.utils.korm.query.BatchQuery
+import com.rmp.lib.utils.korm.query.QueryDto
+import com.rmp.lib.utils.korm.query.QueryType
+import com.rmp.lib.utils.korm.query.batch.BatchBuilder
 import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.serialization.Json
 import io.github.crackthecodeabhi.kreds.connection.Endpoint
@@ -10,8 +16,14 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.ObsoleteCoroutinesApi
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.actor
 import org.kodein.di.DI
+import java.util.UUID
+import kotlin.uuid.ExperimentalUuidApi
+import kotlin.uuid.Uuid
+
+const val DB_REQUEST_TIMEOUT = 5_000L
 
 open class PubSubService(val serviceName: String, di: DI) : KodeinService(di) {
     val client by lazy {
@@ -28,29 +40,44 @@ open class PubSubService(val serviceName: String, di: DI) : KodeinService(di) {
         }
     }
 
-    private val pendingDbRequests = mutableMapOf<Long, Pair<RedisEvent, CompletableDeferred<DbResponseData>>>()
+    private val time = mutableMapOf<Uuid, Long>()
+    private val pendingDbRequests = mutableMapOf<Uuid, CompletableDeferred<DbResponseData>>()
 
-    private sealed class DbCommunication(val id: Long) {
-        class DbRequest(id: Long, val redisEvent: RedisEvent, val completableDeferred: CompletableDeferred<DbResponseData>): DbCommunication(id)
-        class DbResponse(id: Long, val value: RedisEvent): DbCommunication(id)
+    private sealed class DbCommunication() {
+        class DbRequest(
+            val redisEvent: RedisEvent,
+            val completableDeferred: CompletableDeferred<DbResponseData>,
+            val idFetched: CompletableDeferred<Uuid>
+        ): DbCommunication()
+        class DbResponse(val value: RedisEvent): DbCommunication()
     }
 
     @OptIn(ObsoleteCoroutinesApi::class)
-    private val dbActor = CoroutineScope(Job()).actor<DbCommunication> {
+    private val dbActor = CoroutineScope(Job()).actor<DbCommunication>(capacity = Channel.UNLIMITED) {
         for (item in this) {
             when (item) {
                 is DbCommunication.DbRequest -> {
-                    pendingDbRequests += item.id to (item.redisEvent to item.completableDeferred)
-                    Logger.debug("Pending request added $item")
+                    var id = Uuid.random()
+                    while (id in pendingDbRequests) { id = Uuid.random() }
+                    item.idFetched.complete(id)
+                    pendingDbRequests += id to item.completableDeferred
+                    time += id to System.currentTimeMillis()
+                    Logger.debug("Pending request added ${item.redisEvent.action}")
                 }
                 is DbCommunication.DbResponse -> {
-                    if (pendingDbRequests.containsKey(item.id)) {
-                        Logger.debug("Pending request found ${item.id}")
-                        val (initiator, deferred) = pendingDbRequests.getValue(item.id)
-                        Logger.debug(initiator.tid)
-                        Logger.debug(item.value.tid)
-                        initiator.tid = item.value.tid
-                        Logger.debug("DB RESPONSE RECEIVED: ${item.value}")
+                    if (pendingDbRequests.containsKey(item.value.dbRequest)) {
+                        Logger.debug("Pending request found ${item.value.action}")
+                        val deferred = pendingDbRequests.getValue(item.value.dbRequest!!)
+
+                        val timeout = System.currentTimeMillis() - time[item.value.dbRequest]!!
+
+                        Logger.debug("DB RESPONSE RECEIVED[${timeout}ms]: ${item.value}")
+
+                        if (deferred.isCompleted) {
+                            publish(item.value.mutateData(BatchBuilder.build { rollback() }), AppConf.redis.db)
+                            pendingDbRequests -= item.value.dbRequest!!
+                            continue
+                        }
 
                         val result = try {
                             item.value.parseDb()
@@ -62,20 +89,21 @@ open class PubSubService(val serviceName: String, di: DI) : KodeinService(di) {
                         if (result == null) deferred.complete(DbResponseData(mutableMapOf()))
                         else deferred.complete(result)
 
-                        pendingDbRequests -= item.id
+                        pendingDbRequests -= item.value.dbRequest!!
                     }
                 }
             }
         }
     }
 
-    fun regDbRequest(id: Long, redisEvent: RedisEvent): CompletableDeferred<DbResponseData> {
+    suspend fun regDbRequest(redisEvent: RedisEvent): Pair<CompletableDeferred<Uuid>, CompletableDeferred<DbResponseData>> {
         val completable = CompletableDeferred<DbResponseData>()
-        dbActor.trySend(DbCommunication.DbRequest(id, redisEvent, completable))
-        return completable
+        val idFetched = CompletableDeferred<Uuid>()
+        dbActor.send(DbCommunication.DbRequest(redisEvent, completable, idFetched))
+        return idFetched to completable
     }
 
-    fun processDbResponse(id: Long, redisEvent: RedisEvent) {
-        dbActor.trySend(DbCommunication.DbResponse(id, redisEvent))
+    fun processDbResponse(redisEvent: RedisEvent) {
+        dbActor.trySend(DbCommunication.DbResponse(redisEvent))
     }
 }

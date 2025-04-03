@@ -14,7 +14,6 @@ data class RowDto (
     companion object {
         fun build(rs: ResultSet, columns: List<String>): RowDto {
             val row = RowDto()
-            Logger.debug("BUILD ROW DTO OBJECT: $columns")
             columns.forEachIndexed { index, column ->
                 row.serializedData[column] = rs.getObject(index + 1)
             }

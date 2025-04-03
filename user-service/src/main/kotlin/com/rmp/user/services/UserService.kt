@@ -4,11 +4,13 @@ import com.rmp.lib.exceptions.*
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.dto.CurrentCaloriesOutputDto
 import com.rmp.lib.shared.dto.DishLogCheckDto
+import com.rmp.lib.shared.dto.Response
 import com.rmp.lib.shared.dto.target.TargetUpdateLogDto
 import com.rmp.lib.shared.modules.user.*
 import com.rmp.lib.utils.korm.column.Column
 import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.column.less
+import com.rmp.lib.utils.korm.column.lessEq
 import com.rmp.lib.utils.korm.insert
 import com.rmp.lib.utils.korm.references.JoinType
 import com.rmp.lib.utils.log.Logger
@@ -31,7 +33,16 @@ class UserService(di: DI): FsmService(di) {
     suspend fun createUser(redisEvent: RedisEvent) {
         val data = redisEvent.parseData<UserCreateInputDto>() ?: throw BadRequestException("Invalid data provided")
 
-        checkEmail(redisEvent, data.email)
+        newTransaction(redisEvent) { this add UserModel.select().where { UserModel.id lessEq 10000 } }
+
+        autoCommitTransaction(redisEvent) { this add UserModel.select().where { UserModel.id lessEq 20000 } }
+//        checkEmail(redisEvent, data.email)
+
+        redisEvent.switchOnApi(Response(true, ""))
+        return
+
+
+        Logger.debug(data.activityType)
 
         val select = newAutoCommitTransaction(redisEvent) {
             this add UserActivityLevelModel
@@ -82,7 +93,7 @@ class UserService(di: DI): FsmService(di) {
                 }.named("insert-user")
         }["insert-user"]?.firstOrNull() ?: throw InternalServerException("Insert failed")
 
-        val update = autoCommitTransaction(redisEvent) {
+        val update = transaction(redisEvent) {
             this add UserModel
                 .update(UserModel.id eq user[UserModel.id]) {
                     UserModel.nickname.set("${data.name}-${user[UserModel.id]}")
@@ -99,6 +110,8 @@ class UserService(di: DI): FsmService(di) {
 
         val count = update[UserModel]?.firstOrNull()?.get(UserModel.updateCount)
         if (count == null || count < 1) throw InternalServerException("Failed to update")
+
+        autoCommitTransaction(redisEvent) {}
 
         redisEvent
             .copyId("target-update-log")

@@ -24,6 +24,8 @@ import com.rmp.lib.utils.korm.DbType
 import com.rmp.lib.utils.korm.TableRegister
 import com.rmp.lib.utils.korm.query.BatchQuery
 import com.rmp.lib.utils.korm.query.QueryDto
+import com.rmp.lib.utils.korm.query.QueryResult
+import com.rmp.lib.utils.log.Logger
 import com.rmp.lib.utils.redis.PubSubService
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.RedisSubscriber
@@ -33,7 +35,9 @@ import com.rmp.tm.korm.TransactionManager
 import kotlinx.coroutines.*
 import org.kodein.di.DI
 import org.kodein.di.instance
+import kotlin.uuid.ExperimentalUuidApi
 
+@OptIn(ExperimentalUuidApi::class)
 fun main() {
     TransactionManager.init {
         jdbcUrl = ServiceConf.dbConf.jdbcUrl
@@ -57,17 +61,22 @@ fun main() {
     TableRegister.register(DbType.PGSQL, TrainingTypeModel, TrainingIntensityModel, UserTrainingLogModel)
     TableRegister.register(DbType.PGSQL, UserSubsModel, PostModel, UserUpvoteModel, TargetLogModel)
 
-    TransactionManager.initTables(
-        forceRecreate = true,
-        excludedFromRecreation = mutableSetOf(
-            DishModel, DishTypeModel,
-            UserGoalTypeModel, UserActivityLevelModel,
-            UserModel, UserAchievementsModel, TargetLogModel,
-            SleepQualityModel, TrainingTypeModel, TrainingIntensityModel
-        )
-    ) {
+    val kodein = DI {
+        bindSingleton { PubSubService(AppConf.redis.db, it) }
+    }
 
-        // User goals
+    runBlocking {
+        TransactionManager.initTables(
+            forceRecreate = true,
+            excludedFromRecreation = mutableSetOf(
+                DishModel, DishTypeModel,
+                UserGoalTypeModel, UserActivityLevelModel,
+                UserModel, UserAchievementsModel, TargetLogModel,
+                SleepQualityModel, TrainingTypeModel, TrainingIntensityModel
+            )
+        ) {
+
+            // User goals
 //        this add UserGoalTypeModel.insert {
 //            it[name] = "Lose"
 //            it[coefficient] = 0.85F
@@ -83,7 +92,7 @@ fun main() {
 //            it[coefficient] = 1.15F
 //        }.named("insert-gain-goal-type")
 
-        // User activity
+            // User activity
 //        this add UserActivityLevelModel.insert {
 //            it[name] = "Low"
 //            it[caloriesCoefficient] = 1.2F
@@ -105,7 +114,7 @@ fun main() {
 //            it[defaultSteps] = 10000
 //        }.named("insert-high-activity-type")
 
-        // User
+            // User
 //        this add UserModel.insert {
 //            it[name] = "User"
 //            it[email] = "login@test.test"
@@ -145,7 +154,7 @@ fun main() {
 //            it[sleepTarget] = 9.0f
 //        }.named("insert-target-log")
 
-        // Trainings types
+            // Trainings types
 //        this add TrainingTypeModel.insert {
 //            it[name] = "Плавание"
 //            it[coefficient] = 1.3
@@ -176,13 +185,8 @@ fun main() {
 //            it[name] = "Низкая"
 //            it[coefficient] = 1.5
 //        }.named("add-training-intensity-low")
-    }
+        }
 
-    val kodein = DI {
-        bindSingleton { PubSubService(AppConf.redis.db, it) }
-    }
-
-    runBlocking {
         coroutineScope {
             val handler = object : RedisSubscriber() {
                 override fun onMessage(redisEvent: RedisEvent?, channel: String, message: String) {
@@ -194,24 +198,14 @@ fun main() {
 
                     if (tryDecode == null) return
 
-                    launch {
+                    launch(context = Dispatchers.Default) {
                         when (tryDecode) {
                             is BatchQuery -> {
-                                TransactionManager.databaseActor.send(
-                                    TransactionManager.QueryEvent.BatchQueryEvent(
-                                        tryDecode,
-                                        redisEvent
-                                    )
-                                )
+                                TransactionManager.process(redisEvent, tryDecode)
                             }
 
                             is QueryDto -> {
-                                TransactionManager.databaseActor.send(
-                                    TransactionManager.QueryEvent.SingleQueryEvent(
-                                        tryDecode,
-                                        redisEvent
-                                    )
-                                )
+                                TransactionManager.process(redisEvent, BatchQuery(mutableMapOf("simple" to tryDecode)))
                             }
                         }
                     }
@@ -223,16 +217,23 @@ fun main() {
                     val pubSubService: PubSubService by kodein.instance()
 
                     while (true) {
-                        val executionResult = TransactionManager.processedChannel.tryReceive().getOrNull() ?: continue
-                        val event = executionResult.first
-                        val queryResult = executionResult.second
+                        val state = TransactionManager.processedChannel.tryReceive().getOrNull() ?: continue
 
-                        val sender = event.from
+                        val event = state.redisEvent
+                        val sender = state.redisEvent.from
 
+                        Logger.debug("PUBLISH ${event.action}")
                         pubSubService.publish(
-                            event.mutateData(queryResult, queryResult.tid),
+                            event.mutateData(QueryResult(state.executionResult)),
                             sender
                         )
+                    }
+                }
+
+                launch {
+                    while (true) {
+                        TransactionManager.renderActive()
+                        delay(5_000)
                     }
                 }
 

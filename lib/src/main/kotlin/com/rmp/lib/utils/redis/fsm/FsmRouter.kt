@@ -12,6 +12,7 @@ import org.kodein.di.DIAware
 import org.kodein.di.instance
 import kotlin.reflect.KClass
 import kotlin.reflect.full.superclasses
+import kotlin.uuid.ExperimentalUuidApi
 
 typealias ExceptionHandler = suspend RedisEvent.(exception: Exception) -> Unit
 
@@ -75,24 +76,18 @@ class FsmRouter(override val di: DI) : DIAware {
         exceptionHandlers += T::class to processor as ExceptionHandler
     }
 
+    @OptIn(ExperimentalUuidApi::class)
     suspend fun process(event: RedisEvent) {
         try {
             val fsm = routes[event.eventType] ?: throw Exception("Unknown event type: ${event.eventType}")
             if (event.from == AppConf.redis.db && event.dbRequest != null) {
-                pubSubService.processDbResponse(event.dbRequest, event)
+                pubSubService.processDbResponse(event)
                 return
             }
             fsm.process(event)
         } catch (e: Exception) {
-            if (event.tid != null) {
-                fsmService.transaction(event) {
-                    rollback()
-                }
-            } else {
-                // ??????
-                fsmService.newTransaction(event) {
-                    rollback()
-                }
+            fsmService.transaction(event) {
+                rollback()
             }
 
             if (e::class in exceptionHandlers) {
