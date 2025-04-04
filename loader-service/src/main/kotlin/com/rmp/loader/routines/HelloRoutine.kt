@@ -2,8 +2,8 @@ package com.rmp.loader.routines
 
 import com.rmp.loader.core.ApiClient
 import com.rmp.loader.core.Routine
-import com.rmp.loader.dto.LoginDto
-import com.rmp.loader.dto.SignupDto
+import com.rmp.loader.dto.hello.LoginDto
+import com.rmp.loader.dto.hello.SignupDto
 import io.ktor.client.request.*
 
 object HelloRoutine {

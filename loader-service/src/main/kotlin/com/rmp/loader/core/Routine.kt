@@ -1,6 +1,6 @@
 package com.rmp.loader.core
 
-import com.rmp.loader.dto.LoginDto
+import com.rmp.loader.dto.hello.LoginDto
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
