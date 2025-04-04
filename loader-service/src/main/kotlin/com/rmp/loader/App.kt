@@ -8,8 +8,12 @@ fun main() {
     val pool = Pool {
         append(HelloRoutine.routine, 3000)
     }
+    val testPool = Pool {
+        append(HelloRoutine.routine, 1)
+    }
 
     runBlocking {
-        pool.run("Hello pool")
+//        pool.run("Hello pool")
+        testPool.run("Test pool")
     }
 }

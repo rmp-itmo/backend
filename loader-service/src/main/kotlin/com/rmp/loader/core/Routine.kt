@@ -70,7 +70,11 @@ class Routine private constructor() {
     }
 
     fun addDelay(timeout: Long) {
-        steps += Step.DelayStep(timeout)
+        steps += Step.DelayStep(Random.nextLong(timeout - 50, timeout + 50))
+    }
+
+    fun addDelay(a: Long, b: Long) {
+        steps += Step.DelayStep(Random.nextLong(a, b))
     }
 
     suspend fun runStepOn(poolItem: Pool.PoolItem): String {
