@@ -38,7 +38,7 @@ class Pool private constructor() {
     companion object { operator fun invoke(poolBuilder: Pool.() -> Unit): Pool = Pool().apply(poolBuilder) }
 
     fun append(routine: Routine, count: Int) {
-        items.addAll(List(count) { PoolItem(it, routine) })
+        items.addAll(List(count) { PoolItem(items.size + it, routine) })
     }
 
     suspend fun run(poolName: String) {
