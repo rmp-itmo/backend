@@ -4,7 +4,6 @@ import com.rmp.loader.core.ApiClient
 import com.rmp.loader.core.Routine
 import com.rmp.loader.dto.LoginDto
 import com.rmp.loader.dto.SignupDto
-import io.ktor.client.call.*
 import io.ktor.client.request.*
 
 object HelloRoutine {
@@ -29,17 +28,10 @@ object HelloRoutine {
             }
         }
 
-//        addDelay(100)
-//
-//        addStep("auth", ApiClient.Method.POST, false) {
-//            setBuilder { bot ->
-//                val login = bot.state as LoginDto
-//                setBody(login)
-//            }
-//
-//            setProcessor { response ->
-//                authorize(response.body())
-//            }
-//        }
+        addDelay(100)
+
+        authorize {
+            state as LoginDto
+        }
     }
 }

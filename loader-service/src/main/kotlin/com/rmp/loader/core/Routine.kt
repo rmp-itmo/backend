@@ -1,5 +1,7 @@
 package com.rmp.loader.core
 
+import com.rmp.loader.dto.LoginDto
+import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import kotlinx.coroutines.delay
@@ -64,6 +66,29 @@ class Routine private constructor() {
     private val steps: MutableList<Step> = mutableListOf()
 
     val size: Int get() = steps.size
+
+    fun authorize(loginDto: LoginDto) {
+        addStep("auth", ApiClient.Method.POST, false) {
+            setBuilder { bot ->
+                setBody(loginDto)
+            }
+            setProcessor { response ->
+                authorize(response.body())
+            }
+        }
+    }
+
+    fun authorize(getLoginDto: Pool.PoolItem.() -> LoginDto) {
+
+        addStep("auth", ApiClient.Method.POST, false) {
+            setBuilder { bot ->
+                setBody(with(bot, getLoginDto))
+            }
+            setProcessor { response ->
+                authorize(response.body())
+            }
+        }
+    }
 
     fun addStep(url: String, method: ApiClient.Method, authorized: Boolean = true, callBuilder: Step.CallStep.() -> Unit) {
         steps += Step.CallStep(url, method, authorized, callBuilder)
