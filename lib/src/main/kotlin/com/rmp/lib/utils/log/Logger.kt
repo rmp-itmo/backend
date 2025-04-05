@@ -139,7 +139,12 @@ object Logger {
     fun traceEventPublished(redisEvent: RedisEvent, dest: String) {
         val info = "Event published by $serviceName to $dest \n" +
                     "${redisEvent.eventType}.${redisEvent.eventState.state} <${redisEvent.action}> {\n" +
-                        "\tData: ${redisEvent.data} \n" +
+                        "\tData: ${
+                            if (redisEvent.data.length > 201)
+                                redisEvent.data.slice(0..200)
+                            else
+                                redisEvent.data
+                        } \n" +
                         "\tState: ${redisEvent.eventState.stateData} \n" +
                         "\tDb Request: ${redisEvent.dbRequest}" +
                     "}"

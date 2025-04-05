@@ -86,6 +86,8 @@ class FsmRouter(override val di: DI) : DIAware {
             }
             fsm.process(event)
         } catch (e: Exception) {
+            Logger.debugException(e.message, e, pubSubService.serviceName, event.action)
+
             fsmService.transaction(event) {
                 rollback()
             }

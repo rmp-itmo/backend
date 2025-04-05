@@ -38,7 +38,15 @@ class Pool private constructor() {
     companion object { operator fun invoke(poolBuilder: Pool.() -> Unit): Pool = Pool().apply(poolBuilder) }
 
     fun append(routine: Routine, count: Int) {
-        items.addAll(List(count) { PoolItem(it, routine) })
+        items.addAll(List(count) { PoolItem(items.size + it, routine) })
+    }
+
+    fun append(count: Int, vararg routines: Routine) {
+        val part = count / routines.size
+        for (route in routines) {
+            append(route, part)
+        }
+        items.shuffle()
     }
 
     suspend fun run(poolName: String) {

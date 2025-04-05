@@ -1,4 +1,4 @@
-package com.rmp.loader.dto
+package com.rmp.loader.dto.hello
 
 import kotlinx.serialization.Serializable
 
