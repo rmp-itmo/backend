@@ -30,7 +30,7 @@ class MenuService(di: DI) : FsmService(di) {
 
     suspend fun setMenu(redisEvent: RedisEvent) {
         val state = redisEvent.parseData<MenuInputDto>() ?: throw BadRequestException("Bad data provided")
-        val providedDishes = state.meals.map { it.dishes }.flatten()
+        val providedDishes = state.meals.map { it.dishes }.flatten().distinct()
 
         val dishes = newTransaction(redisEvent) {
             this add UserMenuItem.delete(
