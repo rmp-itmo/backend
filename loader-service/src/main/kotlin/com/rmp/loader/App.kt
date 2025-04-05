@@ -26,27 +26,17 @@ val CURRENT_YEAR_GRAPH = FetchGraphDto(
 
 fun main() {
     val pool = Pool {
-        append(HelloRoutine.routine, 3000)
-    }
-    val testPool = Pool {
-        append(HelloRoutine.routine, 1)
-        append(HeartRoutine.routine, 1)
-        append(MenuHistoryRoutine.routine, 1)
-        append(MenuRoutine.routine, 1)
-        append(SleepRoutine.routine, 1)
-        append(WaterRoutine.routine, 1)
-        append(MarkMenuItemDone.routine, 1)
-        append(MainPageRoutine.routine, 1)
-        append(AchievementRoutine.routine, 1)
-        append(FeedRoutine.routine, 1)
-        append(LikeRoutine.routine, 1)
-        append(TrainingRoutine.routine, 1)
-        append(SettingsRoutine.routine, 1)
-        append(SubscribeRoutine.routine, 1)
+        append(
+            10000,
+            HelloRoutine.routine, HeartRoutine.routine, MenuHistoryRoutine.routine,
+            MenuRoutine.routine, SleepRoutine.routine, WaterRoutine.routine,
+            MarkMenuItemDone.routine, MainPageRoutine.routine, AchievementRoutine.routine,
+            FeedRoutine.routine, LikeRoutine.routine, TrainingRoutine.routine,
+            SettingsRoutine.routine, SubscribeRoutine.routine
+        )
     }
 
     runBlocking {
-//        pool.run("Hello pool")
-        testPool.run("Test pool")
+        pool.run("Dominator pool")
     }
 }

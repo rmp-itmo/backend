@@ -41,6 +41,14 @@ class Pool private constructor() {
         items.addAll(List(count) { PoolItem(items.size + it, routine) })
     }
 
+    fun append(count: Int, vararg routines: Routine) {
+        val part = count / routines.size
+        for (route in routines) {
+            append(route, part)
+        }
+        items.shuffle()
+    }
+
     suspend fun run(poolName: String) {
         val now = System.currentTimeMillis()
         println("Start $poolName (${items.size}) execution")
