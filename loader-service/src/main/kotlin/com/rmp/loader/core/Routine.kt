@@ -96,6 +96,7 @@ class Routine private constructor() {
         addStep("users/create", ApiClient.Method.POST, false) {
             setBuilder { bot ->
                 val login = LoginDto("${randomString(6)}-${System.currentTimeMillis()}", "password")
+                println("Bot data: $login")
                 bot.state = login
                 val signupDto = SignupDto(
                     name = "test-${randomString(6)}-${System.currentTimeMillis()}",
@@ -154,7 +155,9 @@ class Routine private constructor() {
 
                 with(poolItem) {
                     try {
-                        step.processor(this, response.successOr(null) ?: throw RoutineFailed())
+                        val httpResponse = response.successOr(null) ?: throw RoutineFailed()
+                        if (httpResponse.status.value != 200) throw RoutineFailed()
+                        step.processor(this, httpResponse)
                     } catch (e: Exception) {
                         println(response.successOr(null)?.bodyAsText())
                         println(e.message)

@@ -5,14 +5,14 @@ import com.rmp.loader.dto.FetchGraphDto
 import com.rmp.loader.routines.*
 import kotlinx.coroutines.runBlocking
 
-const val TODAY = 20250404
+const val TODAY = 20250405
 
 const val CURRENT_MONTH = TODAY / 100
 
 val TODAY_GRAPH = FetchGraphDto(
     year = 2025,
     month = "04",
-    day = "04"
+    day = "05"
 )
 
 val CURRENT_MONTH_GRAPH = FetchGraphDto(
@@ -36,7 +36,12 @@ fun main() {
         )
     }
 
+    val testPool = Pool {
+        append(MenuRoutine.routine, 1)
+    }
+
     runBlocking {
-        pool.run("Dominator pool")
+//        pool.run("Dominator pool")
+        testPool.run("Menu pool")
     }
 }
