@@ -202,7 +202,7 @@ object TransactionManager {
         } catch (e: Exception) {
             Logger.debugException("Failed to process query ${query.sql}, params: ${query.params}", e, "database", state.redisEvent.action)
             rollback(state.redisEvent.action, connection)
-            return emptyList()
+            throw e
         }
 
         val result = mutableListOf<RowDto>()
@@ -253,7 +253,9 @@ object TransactionManager {
             Logger.debug("Connection restored. ACTION: ${redisEvent.action}", "database", action = redisEvent.action)
         }
 
+        var failed = false
         state.executionResult = batch.queries.mapNotNull { (label, query) ->
+            if (failed) return@mapNotNull null
             Logger.debug("[${QueryType.getByValue(query.queryType)}] ${query.sql} ${query.params}, Conn=${state.connection}", "database", redisEvent.action)
 
             val executionResult = when (QueryType.getByValue(query.queryType)) {
@@ -264,8 +266,7 @@ object TransactionManager {
                     null
                 }
                 QueryType.SELECT, QueryType.INSERT -> {
-                    label to ExecutionResult(
-                        query.queryParseData ?: mutableMapOf(),
+                    val res = try {
                         execute(
                             state,
                             query,
@@ -274,16 +275,25 @@ object TransactionManager {
                             }?.flatten() ?: listOf(),
                             query.queryType == QueryType.INSERT.value
                         )
-                    )
+                    } catch (e: Exception) {
+                        failed = true
+                        emptyList()
+                    }
+
+                    label to ExecutionResult(query.queryParseData ?: mutableMapOf(), res)
                 }
                 QueryType.UPDATE, QueryType.DELETE -> {
                     val queryParseData = query.queryParseData ?: mutableMapOf()
-                    label to ExecutionResult(
-                        queryParseData,
+                    val res = try {
                         executeNoResult(
                             state, query, queryParseData
                         )
-                    )
+                    } catch (e: Exception) {
+                        failed = true
+                        emptyList()
+                    }
+
+                    label to ExecutionResult(queryParseData, res)
                 }
 
                 QueryType.COMMIT -> {

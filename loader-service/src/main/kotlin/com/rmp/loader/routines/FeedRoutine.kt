@@ -22,23 +22,6 @@ object FeedRoutine {
 
         addDelay(100)
 
-        addStep("social/post", ApiClient.Method.POST) {
-            setBuilder {
-                setBody(
-                    PostCreateDto(
-                        title = randomString(6),
-                        text = randomString(15)
-                    )
-                )
-            }
-        }
-
-        addDelay(100)
-
-        addStep("social/user", ApiClient.Method.GET) {
-            setProcessor { response ->
-                state = response.body<ProfileDto>()
-            }
-        }
+        extend(CreatePost.routine)
     }
 }
