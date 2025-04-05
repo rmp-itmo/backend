@@ -24,12 +24,12 @@ object FeedRoutine {
 
         addStep("social/post", ApiClient.Method.POST) {
             setBuilder {
-                setBody {
+                setBody(
                     PostCreateDto(
                         title = randomString(6),
                         text = randomString(15)
                     )
-                }
+                )
             }
         }
 
