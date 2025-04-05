@@ -7,6 +7,8 @@ import kotlinx.coroutines.runBlocking
 
 const val TODAY = 20250404
 
+const val CURRENT_MONTH = TODAY / 100
+
 val TODAY_GRAPH = FetchGraphDto(
     year = 2025,
     month = "04",
@@ -34,6 +36,13 @@ fun main() {
         append(SleepRoutine.routine, 1)
         append(WaterRoutine.routine, 1)
         append(MarkMenuItemDone.routine, 1)
+        append(MainPageRoutine.routine, 1)
+        append(AchievementRoutine.routine, 1)
+        append(FeedRoutine.routine, 1)
+        append(LikeRoutine.routine, 1)
+        append(TrainingRoutine.routine, 1)
+        append(SettingsRoutine.routine, 1)
+        append(SubscribeRoutine.routine, 1)
     }
 
     runBlocking {
