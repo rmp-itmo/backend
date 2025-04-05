@@ -5,7 +5,6 @@ import com.rmp.loader.dto.hello.SignupDto
 import io.ktor.client.call.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
-import io.ktor.serialization.*
 import kotlinx.coroutines.delay
 import kotlin.random.Random
 import kotlin.random.nextInt
@@ -41,7 +40,7 @@ class Routine private constructor() {
 
     class RoutineFinished(): Exception("Routine finished")
 
-    class RoutineFailed(): Exception("Routine failed")
+    class RoutineFailed(bot: String, request: String): Exception("Routine failed $bot, $request")
 
     sealed class Step private constructor() {
         class CallStep(val url: String, val method: ApiClient.Method, val authorized: Boolean): Step() {
@@ -155,14 +154,14 @@ class Routine private constructor() {
 
                 with(poolItem) {
                     try {
-                        val httpResponse = response.successOr(null) ?: throw RoutineFailed()
-                        if (httpResponse.status.value != 200) throw RoutineFailed()
+                        val httpResponse = response.successOr(null) ?: throw Exception("Bot#${this.id} ${step.method} ${step.url}")
+                        if (httpResponse.status.value != 200) throw Exception("${httpResponse.status.value}")
                         step.processor(this, httpResponse)
                     } catch (e: Exception) {
                         println(response.successOr(null)?.bodyAsText())
                         println(e.message)
                         println(e.stackTraceToString())
-                        throw RoutineFailed()
+                        throw RoutineFailed("Bot#${this.id}", "${step.method} ${step.url}")
                     }
                 }
                 println("Execution Bot#${poolItem.id} step ${step.url} succeed, executed ${System.currentTimeMillis() - now} ms")

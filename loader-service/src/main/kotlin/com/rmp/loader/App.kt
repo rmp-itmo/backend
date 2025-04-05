@@ -24,10 +24,14 @@ val CURRENT_YEAR_GRAPH = FetchGraphDto(
     year = 2025
 )
 
-fun main() {
+fun main(args: Array<String>) {
+    val size = if (args.size > 1) {
+        args[1].toInt()
+    } else 100
+
     val pool = Pool {
         append(
-            10000,
+            size,
             HelloRoutine.routine, HeartRoutine.routine, MenuHistoryRoutine.routine,
             MenuRoutine.routine, SleepRoutine.routine, WaterRoutine.routine,
             MarkMenuItemDone.routine, MainPageRoutine.routine, AchievementRoutine.routine,
@@ -37,11 +41,10 @@ fun main() {
     }
 
     val testPool = Pool {
-        append(MenuRoutine.routine, 1)
+        append(WaterRoutine.routine, 1)
     }
 
     runBlocking {
-//        pool.run("Dominator pool")
-        testPool.run("Menu pool")
+        pool.run("Test pool")
     }
 }

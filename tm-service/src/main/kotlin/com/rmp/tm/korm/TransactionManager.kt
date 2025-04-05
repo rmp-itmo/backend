@@ -149,7 +149,10 @@ object TransactionManager {
                 val connection = ev.state.connection.let {
                     if (it == null) Logger.debug("COMMIT FAILED! NO OPEN CONNECTION", "database", action)
                     it
-                } ?: return
+                } ?: run {
+                    ev.finished.complete(Unit)
+                    return
+                }
 
                 commit(action, connection)
                 active.remove(action)
@@ -162,7 +165,10 @@ object TransactionManager {
                 val connection = ev.state.connection.let {
                     if (it == null) Logger.debug("ROLLBACK FAILED! NO OPEN CONNECTION", "database", action)
                     it
-                } ?: return
+                } ?: run {
+                    ev.finished.complete(Unit)
+                    return
+                }
 
                 rollback(action, connection)
                 active.remove(action)

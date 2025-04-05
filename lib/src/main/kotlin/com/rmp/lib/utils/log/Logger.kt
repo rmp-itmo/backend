@@ -140,8 +140,8 @@ object Logger {
         val info = "Event published by $serviceName to $dest \n" +
                     "${redisEvent.eventType}.${redisEvent.eventState.state} <${redisEvent.action}> {\n" +
                         "\tData: ${
-                            if (redisEvent.data.length > 201)
-                                redisEvent.data.slice(0..200)
+                            if (redisEvent.data.length > 1001)
+                                redisEvent.data.slice(0..1000)
                             else
                                 redisEvent.data
                         } \n" +
@@ -169,8 +169,8 @@ object Logger {
                 "Event received from ${redisEvent.from} \n" +
                         "${redisEvent.eventType}.${redisEvent.eventState.state} <${redisEvent.action}> {\n" +
                         "\tData: ${
-                            if (redisEvent.data.length > 201)
-                                redisEvent.data.slice(0..200)
+                            if (redisEvent.data.length > 1001)
+                                redisEvent.data.slice(0..1000)
                             else
                                 redisEvent.data
                         } \n" +
