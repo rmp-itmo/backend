@@ -24,7 +24,7 @@ object SleepRoutine {
 
         addDelay(100)
 
-        addStep("users/log/sleep", ApiClient.Method.POST) {
+        addStep("sleep", ApiClient.Method.POST) {
             setBuilder {
                 setBody(
                     AddSleepDto(

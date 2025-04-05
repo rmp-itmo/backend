@@ -34,11 +34,11 @@ object SettingsRoutine {
                     isMale = randomBoolean(),
                     age = randomInt(18, 52),
                     name = randomString(5),
-                    email = randomString(15),
+                    email = randomString(70),
                     password = randomString(6),
                     activityType = activityTypes[randomInt(1, 3)]!!,
                     goalType = goalTypes[randomInt(1, 3)]!!,
-                    nickname = randomString(7),
+                    nickname = randomString(70),
                 ))
             }
         }
