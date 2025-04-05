@@ -2,4 +2,6 @@ application {
   loggerConf {
     serviceName = "loader-service"
   }
+
+  targetEndpoint = "https://api.rmp.dudosyka.ru"
 }

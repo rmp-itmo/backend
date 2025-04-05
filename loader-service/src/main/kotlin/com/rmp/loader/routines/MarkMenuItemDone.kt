@@ -11,7 +11,7 @@ object MarkMenuItemDone {
     val routine = Routine {
         extend(MenuRoutine.routine)
 
-        addStep("users/log/menu", ApiClient.Method.POST) {
+        addStep("users/log/dish", ApiClient.Method.POST) {
             setBuilder { bot ->
                 val menu = bot.state as MenuDto
                 setBody(CheckMenuItemDto(
@@ -20,6 +20,8 @@ object MarkMenuItemDone {
                 ))
             }
         }
+
+        addDelay(100)
 
         addStep("users/menu", ApiClient.Method.GET) {
             setProcessor { response ->
