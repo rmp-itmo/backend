@@ -133,7 +133,7 @@ class PostService(di: DI) : FsmService(di) {
                     PostModel.upVotes -= 1
                 }
             }
-        }
+        }[PostModel]?.firstOrNull() ?: throw BadRequestException("Bad post id")
 
         redisEvent.switchOnApi(Response(true, if (upvotePostDto.upvote) "Upvoted" else "Downvoted"))
     }
