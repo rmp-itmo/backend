@@ -1,5 +1,6 @@
 package com.rmp.loader.core
 
+import com.typesafe.config.ConfigFactory
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
@@ -10,8 +11,7 @@ import io.ktor.serialization.kotlinx.json.*
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
-//const val baseUrl = "https://api.rmp.dudosyka.ru"
-const val baseUrl = "http://localhost:8080"
+val baseUrl: String = ConfigFactory.load().getString("application.targetEndpoint")
 
 @Serializable
 open class AnyResponse
