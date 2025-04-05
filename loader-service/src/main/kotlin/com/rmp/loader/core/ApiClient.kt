@@ -4,6 +4,7 @@ import com.typesafe.config.ConfigFactory
 import io.ktor.client.*
 import io.ktor.client.call.*
 import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
@@ -41,6 +42,11 @@ class UnauthorizedException: ApiException(401, "Unauthorized", "Unauthorized")
 class BadResponse: ApiException(0, "Bad response", "Bad response")
 
 private val client = HttpClient(CIO) {
+    engine {
+        endpoint {
+            connectTimeout = HttpTimeout.INFINITE_TIMEOUT_MS
+        }
+    }
     install(ContentNegotiation) {
         json(Json {
             ignoreUnknownKeys = true

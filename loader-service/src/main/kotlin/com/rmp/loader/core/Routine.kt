@@ -1,5 +1,6 @@
 package com.rmp.loader.core
 
+import com.rmp.loader.botNameSuffix
 import com.rmp.loader.dto.hello.LoginDto
 import com.rmp.loader.dto.hello.SignupDto
 import io.ktor.client.call.*
@@ -68,6 +69,13 @@ class Routine private constructor() {
 
     val size: Int get() = steps.size
 
+    val sizeWithoutDelay: Int get() = steps.filter { it is Step.CallStep }.size
+
+    fun getStepUrl(stepIndex: Int): String? {
+        val step = steps[stepIndex]
+        return if (step is Step.CallStep) { step.url } else null
+    }
+
     fun authorize(loginDto: LoginDto) {
         addStep("auth", ApiClient.Method.POST, false) {
             setBuilder { bot ->
@@ -91,32 +99,41 @@ class Routine private constructor() {
         }
     }
 
-    fun startBot() {
-        addStep("users/create", ApiClient.Method.POST, false) {
-            setBuilder { bot ->
-                val login = LoginDto("${randomString(6)}-${System.currentTimeMillis()}", "password")
-                println("Bot data: $login")
-                bot.state = login
-                val signupDto = SignupDto(
-                    name = "test-${randomString(6)}-${System.currentTimeMillis()}",
-                    email = login.login,
-                    password = login.password,
-                    height = randomFloat(1f, 2f),
-                    weight = randomFloat(45f, 150f),
-                    activityType = randomLong(1, 3),
-                    goalType = randomLong(1, 3),
-                    isMale = randomBoolean(),
-                    age = randomInt(18, 70),
-                    registrationDate = randomInt(1, 100)
-                )
-                setBody(signupDto)
+    fun startBot(new: Boolean = false) {
+        if (new) {
+            addStep("users/create", ApiClient.Method.POST, false) {
+                setBuilder { bot ->
+                    val login = LoginDto("${randomString(6)}-${System.currentTimeMillis()}", "password")
+                    println("Bot data: $login")
+                    bot.state = login
+                    val signupDto = SignupDto(
+                        name = "test-${randomString(6)}-${System.currentTimeMillis()}",
+                        email = login.login,
+                        password = login.password,
+                        height = randomFloat(1f, 2f),
+                        weight = randomFloat(45f, 150f),
+                        activityType = randomLong(1, 3),
+                        goalType = randomLong(1, 3),
+                        isMale = randomBoolean(),
+                        age = randomInt(18, 70),
+                        registrationDate = randomInt(1, 100)
+                    )
+                    setBody(signupDto)
+                }
             }
-        }
 
-        addDelay(100)
+            addDelay(100)
 
-        authorize {
-            state as LoginDto
+            authorize {
+                state as LoginDto
+            }
+        } else {
+            authorize {
+                LoginDto(
+                    login = "bot#${id}_${botNameSuffix}",
+                    password = "password",
+                )
+            }
         }
     }
 
@@ -142,7 +159,6 @@ class Routine private constructor() {
         return when (val step = steps[poolItem.curStep]) {
             is Step.CallStep -> {
                 val now = System.currentTimeMillis()
-                println("Start execute Bot#${poolItem.id} step ${step.method} ${step.url}")
                 val builder: HttpRequestBuilder.() -> Unit = {
                     step.builder(this, poolItem)
                 }
@@ -168,7 +184,6 @@ class Routine private constructor() {
                 "success"
             }
             is Step.DelayStep -> {
-                println("Start execute Bot#${poolItem.id} delay ${step.timeout}ms")
                 delay(step.timeout)
                 "delayed"
             }

@@ -24,7 +24,6 @@ import com.rmp.lib.utils.korm.DbType
 import com.rmp.lib.utils.korm.TableRegister
 import com.rmp.lib.utils.korm.query.BatchQuery
 import com.rmp.lib.utils.korm.query.QueryDto
-import com.rmp.lib.utils.korm.query.QueryResult
 import com.rmp.lib.utils.metrics.MetricsProvider
 import com.rmp.lib.utils.redis.*
 import com.rmp.tm.conf.ServiceConf
@@ -33,9 +32,12 @@ import io.micrometer.prometheusmetrics.PrometheusConfig
 import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import kotlinx.coroutines.*
 import org.kodein.di.DI
-import org.kodein.di.instance
 
 val prometheusMeterRegistry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
+
+val kodein = DI {
+    bindSingleton { PubSubService(AppConf.redis.db, prometheusMeterRegistry, it) }
+}
 
 fun main() {
     TransactionManager.init {
@@ -59,10 +61,6 @@ fun main() {
     TableRegister.register(DbType.PGSQL, GraphCacheModel)
     TableRegister.register(DbType.PGSQL, TrainingTypeModel, TrainingIntensityModel, UserTrainingLogModel)
     TableRegister.register(DbType.PGSQL, UserSubsModel, PostModel, UserUpvoteModel, TargetLogModel)
-
-    val kodein = DI {
-        bindSingleton { PubSubService(AppConf.redis.db, prometheusMeterRegistry, it) }
-    }
 
     runBlocking {
         TransactionManager.initTables(
@@ -187,7 +185,6 @@ fun main() {
         }
 
         coroutineScope {
-            val pubSubService by kodein.instance<PubSubService>()
             val handler = object : RedisSubscriber() {
                 override fun onMessage(redisEvent: RedisEvent?, channel: String, message: String) {
                     if (redisEvent == null) {
@@ -212,21 +209,7 @@ fun main() {
                 }
             }
 
-            withContext(Dispatchers.IO.limitedParallelism(Int.MAX_VALUE)) {
-                launch {
-                    while (true) {
-                        val state = TransactionManager.processedChannel.tryReceive().getOrNull() ?: continue
-
-                        val event = state.redisEvent
-                        val sender = state.redisEvent.from
-
-                        pubSubService.publish(
-                            event.mutateData(QueryResult(state.executionResult)),
-                            sender
-                        )
-                    }
-                }
-
+            withContext(Dispatchers.IO) {
                 launch {
                     MetricsProvider.start(prometheusMeterRegistry)
                 }

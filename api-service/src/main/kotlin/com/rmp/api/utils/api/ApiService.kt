@@ -46,6 +46,7 @@ class ApiService(di: DI): PubSubService(AppConf.redis.api, prometheusRegistry, d
                         val deferred = awaited[action]!!
                         executionTime.record(System.currentTimeMillis() - time[action]!!, TimeUnit.MILLISECONDS)
                         deferred.complete(item.redisEvent.data)
+                        awaited.remove(action)
                     }
 
                 }
