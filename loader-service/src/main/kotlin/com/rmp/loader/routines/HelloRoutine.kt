@@ -4,6 +4,6 @@ import com.rmp.loader.core.Routine
 
 object HelloRoutine {
     val routine: Routine = Routine {
-        startBot()
+        startBot(new = true)
     }
 }

@@ -7,8 +7,10 @@ import com.rmp.lib.utils.korm.initTable
 import com.rmp.lib.utils.korm.query.*
 import com.rmp.lib.utils.korm.query.batch.BatchBuilder
 import com.rmp.lib.utils.log.Logger
+import com.rmp.lib.utils.redis.PubSubService
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.RedisEventState
+import com.rmp.tm.kodein
 import com.rmp.tm.prometheusMeterRegistry
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
@@ -16,6 +18,7 @@ import io.micrometer.core.instrument.Timer
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.actor
+import org.kodein.di.instance
 import org.postgresql.util.PSQLException
 import java.sql.Connection
 import java.util.concurrent.TimeUnit
@@ -319,7 +322,16 @@ object TransactionManager {
         }.toMap()
 
         processingTimer.record(System.currentTimeMillis() - time, TimeUnit.MILLISECONDS)
-        processedChannel.send(state)
+
+        val event = state.redisEvent
+        val sender = state.redisEvent.from
+
+        val pubSubService by kodein.instance<PubSubService>()
+
+        pubSubService.publish(
+            event.mutateData(QueryResult(state.executionResult)),
+            sender
+        )
     }
 
 }

@@ -140,7 +140,7 @@ class BoolColumn: ColumnType<Boolean>() {
 class DateTimeColumn: ColumnType<String>() {
     override val sqlRepresentationName: MutableMap<DbType, String>
         get() = mutableMapOf(
-            DbType.CLICKHOUSE to "DateTime",
+            DbType.CLICKHOUSE to "DateTime64(3, 'UTC')",
             DbType.PGSQL to "",
         )
 

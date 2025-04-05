@@ -28,7 +28,7 @@ class LoggerService(di: DI): FsmService(di) {
                 Instant.ofEpochMilli(logEvent.ts),
                 ZoneOffset.UTC
             )
-            it[ts] = localDateTime.toString().split(".").first()
+            it[ts] = localDateTime.toString()
             it[labels] = buildJsonObject {
                 put("sender", logEvent.sender)
                 put("prefix", logEvent.prefix)
