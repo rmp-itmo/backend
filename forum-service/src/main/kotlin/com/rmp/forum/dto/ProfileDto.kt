@@ -7,6 +7,7 @@ import kotlinx.serialization.Serializable
 data class ProfileDto(
     val id: Long,
     val nickName: String,
+    val name: String,
     val subsNum: Long,
     val subscriptions: Map<Long, String>,
     val registrationDate: Int,

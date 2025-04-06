@@ -31,7 +31,7 @@ class ProfileService(di: DI) : FsmService(di) {
             false
         }
         val subscriptions = transaction(redisEvent) {
-            this add UserModel.select(UserModel.id, UserModel.nickname).where { UserModel.id inList subscriptionsIds }
+            this add UserModel.select(UserModel.id, UserModel.nickname, UserModel.name).where { UserModel.id inList subscriptionsIds }
         }[UserModel] ?: listOf()
 
         autoCommitTransaction(redisEvent) {}
@@ -39,6 +39,7 @@ class ProfileService(di: DI) : FsmService(di) {
         return ProfileDto(
             userData[UserModel.id],
             userData[UserModel.nickname],
+            userData[UserModel.name],
             userData[UserModel.subsCount],
             subscriptions
                 .groupBy { it[UserModel.id] }
