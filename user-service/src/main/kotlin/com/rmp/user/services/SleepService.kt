@@ -132,7 +132,7 @@ class SleepService(di: DI): FsmService(di) {
         val authorizedUser = redisEvent.authorizedUser ?: throw ForbiddenException()
         val data = redisEvent.parseData<TargetCheckSupportDto>() ?: throw InternalServerException("Bad data provided")
 
-        val sleep = newTransaction(redisEvent) {
+        val sleep = transaction(redisEvent) {
             this add UserSleepModel
                 .select(UserSleepModel.sleepHours)
                 .where { (UserSleepModel.userId eq authorizedUser.id) and
