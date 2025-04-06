@@ -142,13 +142,16 @@ class TrainingService(di: DI): FsmService(di) {
         val trainings = select[UserTrainingLogModel] ?: listOf()
         val user = select[UserModel]?.firstOrNull() ?: throw InternalServerException("Failed to select steps target")
 
+        fun Int.fixTime(): String = if (this < 10) "0$this" else "$this"
+
         val result = trainings.groupBy({ it[UserTrainingLogModel.date] }) {
+            val (startMinutes, endMinutes) = (it[UserTrainingLogModel.startAt] % 100).fixTime() to (it[UserTrainingLogModel.endAt] % 100).fixTime()
+            val (startHours, endHours) = (it[UserTrainingLogModel.startAt] / 100).fixTime() to (it[UserTrainingLogModel.endAt] / 100).fixTime()
+
             TrainingOutputDto(
                 it[UserTrainingLogModel.id],
-                "${it[UserTrainingLogModel.startAt].toString().slice(0..1)}:" +
-                        it[UserTrainingLogModel.startAt].toString().slice(2..3),
-                "${it[UserTrainingLogModel.endAt].toString().slice(0..1)}:" +
-                        it[UserTrainingLogModel.endAt].toString().slice(2..3),
+                "$startHours:$startMinutes",
+                "$endHours:$endMinutes",
                 it[UserTrainingLogModel.calories],
                 it[TrainingTypeModel.name],
                 it[TrainingIntensityModel.name]
