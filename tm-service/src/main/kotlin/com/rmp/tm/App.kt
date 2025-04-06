@@ -69,7 +69,8 @@ fun main() {
                 DishModel, DishTypeModel,
                 UserGoalTypeModel, UserActivityLevelModel,
                 UserModel, UserAchievementsModel, TargetLogModel,
-                SleepQualityModel, TrainingTypeModel, TrainingIntensityModel
+                SleepQualityModel, TrainingTypeModel, TrainingIntensityModel,
+                UserSubsModel, PostModel, UserUpvoteModel
             )
         ) {
 

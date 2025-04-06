@@ -5,5 +5,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class TrainingsListOutputDto(
+    val stepsTarget: Int,
+    val stepsCurrent: Int,
     val trainings:  Map<Int, List<TrainingOutputDto>>
 ): SerializableClass
