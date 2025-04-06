@@ -12,5 +12,6 @@ data class ProfileDto(
     val subscriptions: Map<Long, String>,
     val registrationDate: Int,
     val posts: List<PostDto>,
-    val isSubscribed: Boolean
+    val isSubscribed: Boolean,
+    val isMale: Boolean
 ): SerializableClass
