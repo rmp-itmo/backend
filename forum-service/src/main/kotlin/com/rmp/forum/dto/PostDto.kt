@@ -13,5 +13,5 @@ data class PostDto(
     val image: String?,
     val text: String?,
     val title: String,
-    val upvored: Boolean,
+    val upvoted: Boolean,
 ): SerializableClass
