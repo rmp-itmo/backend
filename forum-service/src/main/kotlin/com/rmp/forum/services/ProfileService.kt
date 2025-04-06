@@ -46,7 +46,8 @@ class ProfileService(di: DI) : FsmService(di) {
                 .toMap(),
             userData[UserModel.registrationDate],
             posts.reversed(),
-            isSubscribed
+            isSubscribed,
+            userData[UserModel.isMale]
         )
     }
 
