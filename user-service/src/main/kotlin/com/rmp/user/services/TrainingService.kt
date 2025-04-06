@@ -6,6 +6,7 @@ import com.rmp.lib.exceptions.InternalServerException
 import com.rmp.lib.shared.modules.training.TrainingIntensityModel
 import com.rmp.lib.shared.modules.training.TrainingTypeModel
 import com.rmp.lib.shared.modules.training.UserTrainingLogModel
+import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.insert
 import com.rmp.lib.utils.korm.query.builders.filter.and
@@ -118,7 +119,7 @@ class TrainingService(di: DI): FsmService(di) {
             (data.date + 1) * 100
         }
 
-        val trainings = newAutoCommitTransaction(redisEvent) {
+        val select = newAutoCommitTransaction(redisEvent) {
             this add UserTrainingLogModel.select(
                 UserTrainingLogModel.id,
                 UserTrainingLogModel.startAt,
@@ -134,25 +135,32 @@ class TrainingService(di: DI): FsmService(di) {
                         (UserTrainingLogModel.user eq authorizedUser.id) and
                         (UserTrainingLogModel.date.inRange(start, end))
                 }
-        }[UserTrainingLogModel]
 
-        val result = mutableMapOf<Int, MutableList<TrainingOutputDto>>()
-        trainings?.forEach { training ->
-            if (!result.containsKey(training[UserTrainingLogModel.date])) {
-                result[training[UserTrainingLogModel.date]] = mutableListOf()
-            }
-            result[training[UserTrainingLogModel.date]]!!.add(TrainingOutputDto(
-                training[UserTrainingLogModel.id],
-                "${training[UserTrainingLogModel.startAt].toString().slice(0..1)}:" +
-                        training[UserTrainingLogModel.startAt].toString().slice(2..3),
-                "${training[UserTrainingLogModel.endAt].toString().slice(0..1)}:" +
-                        training[UserTrainingLogModel.endAt].toString().slice(2..3),
-                training[UserTrainingLogModel.calories],
-                training[TrainingTypeModel.name],
-                training[TrainingIntensityModel.name]
-            ))
+            this add UserModel.select(UserModel.stepsTarget, UserModel.stepsCount).where { UserModel.id eq authorizedUser.id }
         }
 
-        redisEvent.switchOnApi(TrainingsListOutputDto(result))
+        val trainings = select[UserTrainingLogModel] ?: listOf()
+        val user = select[UserModel]?.firstOrNull() ?: throw InternalServerException("Failed to select steps target")
+
+        val result = trainings.groupBy({ it[UserTrainingLogModel.date] }) {
+            TrainingOutputDto(
+                it[UserTrainingLogModel.id],
+                "${it[UserTrainingLogModel.startAt].toString().slice(0..1)}:" +
+                        it[UserTrainingLogModel.startAt].toString().slice(2..3),
+                "${it[UserTrainingLogModel.endAt].toString().slice(0..1)}:" +
+                        it[UserTrainingLogModel.endAt].toString().slice(2..3),
+                it[UserTrainingLogModel.calories],
+                it[TrainingTypeModel.name],
+                it[TrainingIntensityModel.name]
+            )
+        }
+
+        redisEvent.switchOnApi(
+            TrainingsListOutputDto(
+                stepsTarget = user[UserModel.stepsTarget],
+                stepsCurrent = user[UserModel.stepsCount],
+                trainings = result
+            )
+        )
     }
 }
