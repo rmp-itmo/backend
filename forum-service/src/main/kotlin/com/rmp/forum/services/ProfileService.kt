@@ -45,7 +45,7 @@ class ProfileService(di: DI) : FsmService(di) {
                 .map { (id, user) -> id to user.first()[UserModel.nickname] }
                 .toMap(),
             userData[UserModel.registrationDate],
-            posts,
+            posts.reversed(),
             isSubscribed
         )
     }
