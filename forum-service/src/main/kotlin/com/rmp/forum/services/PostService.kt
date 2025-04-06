@@ -106,7 +106,12 @@ class PostService(di: DI) : FsmService(di) {
         }["insert-post"]?.firstOrNull() ?: throw InternalServerException("Failed to create post")
 
         val post = transaction(redisEvent) {
-            this add PostModel.select().join(UserModel).where { (PostModel.timestamp eq createdAt) and (PostModel.authorId eq user.id) }
+            this add PostModel.select()
+                .join(UserModel)
+                .join(UserUpvoteModel, JoinType.LEFT,
+                    (UserUpvoteModel.postId eq PostModel.id) and
+                            (UserUpvoteModel.userId eq user.id))
+                .where { (PostModel.timestamp eq createdAt) and (PostModel.authorId eq user.id) }
         }[PostModel]?.firstOrNull() ?: throw InternalServerException("Failed to create post")
 
         if (imageName != null && postData.image != null) {
