@@ -1,7 +1,6 @@
 package com.rmp.forum.services
 
 import com.rmp.forum.actions.CreatePostFsm
-import com.rmp.forum.actions.ShareAchievementFsm
 import com.rmp.forum.dto.*
 import com.rmp.lib.exceptions.BadRequestException
 import com.rmp.lib.exceptions.ForbiddenException
@@ -17,11 +16,10 @@ import com.rmp.lib.utils.korm.Row
 import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.column.inList
 import com.rmp.lib.utils.korm.column.inRange
-import com.rmp.lib.utils.korm.column.lessEq
 import com.rmp.lib.utils.korm.insert
 import com.rmp.lib.utils.korm.query.builders.filter.and
 import com.rmp.lib.utils.korm.query.builders.filter.or
-import com.rmp.lib.utils.log.Logger
+import com.rmp.lib.utils.korm.references.JoinType
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
 import org.kodein.di.DI
@@ -40,7 +38,8 @@ class PostService(di: DI) : FsmService(di) {
             this[PostModel.upVotes],
             this[PostModel.image],
             this[PostModel.text],
-            this[PostModel.title]
+            this[PostModel.title],
+            this[UserUpvoteModel.userId] != null
         )
 
 
@@ -55,18 +54,31 @@ class PostService(di: DI) : FsmService(di) {
 
         val lastWeekPosts = System.currentTimeMillis() - 7 * 24 * 60 * 60 * 1000
 
+
         val posts = autoCommitTransaction(redisEvent) {
-            this add PostModel.select().join(UserModel).where {
-                PostModel.timestamp.inRange(lastWeekPosts, System.currentTimeMillis()) and (PostModel.authorId inList users)
-            }
+            this add PostModel.select()
+                .join(UserModel)
+                .join(UserUpvoteModel, JoinType.LEFT,
+                    (UserUpvoteModel.postId eq PostModel.id) and
+                                (UserUpvoteModel.userId eq user.id)
+                )
+                .where {
+                    PostModel.timestamp.inRange(lastWeekPosts, System.currentTimeMillis()) and
+                            (PostModel.authorId inList users)
+                }
         }[PostModel] ?: listOf()
 
         redisEvent.switchOnApi(PostListDto(posts.map { it.toDto() }.shuffled()))
     }
 
-    suspend fun getUserPosts(redisEvent: RedisEvent, userId: Long): List<PostDto> {
+    suspend fun getUserPosts(redisEvent: RedisEvent, userId: Long, authorizedUser: Long?): List<PostDto> {
+        val queryUser = authorizedUser ?: userId
         val posts = transaction(redisEvent) {
-            this add PostModel.select().join(UserModel).where { PostModel.authorId eq userId }
+            this add PostModel.select().join(UserModel)
+                .join(UserUpvoteModel, JoinType.LEFT,
+                    (UserUpvoteModel.postId eq PostModel.id) and
+                            (UserUpvoteModel.userId eq queryUser))
+                .where { PostModel.authorId eq userId }
         }[PostModel] ?: listOf()
 
         return posts.map { it.toDto() }

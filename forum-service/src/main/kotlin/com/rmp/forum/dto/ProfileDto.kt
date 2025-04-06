@@ -10,5 +10,6 @@ data class ProfileDto(
     val subsNum: Long,
     val subscriptions: Map<Long, String>,
     val registrationDate: Int,
-    val posts: List<PostDto>
+    val posts: List<PostDto>,
+    val isSubscribed: Boolean
 ): SerializableClass
