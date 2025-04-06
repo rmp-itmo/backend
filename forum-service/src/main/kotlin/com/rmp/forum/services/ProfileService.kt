@@ -16,15 +16,20 @@ class ProfileService(di: DI) : FsmService(di) {
     private val postService: PostService by instance()
     private val subscribeService: SubscribeService by instance()
 
-    private suspend fun getProfile(redisEvent: RedisEvent, userId: Long): ProfileDto {
+    private suspend fun getProfile(redisEvent: RedisEvent, userId: Long, authorizedUser: Long? = null): ProfileDto {
         val data = newTransaction(redisEvent) {
             this add UserModel.select().where { UserModel.id eq userId }
         }
 
         val userData = data[UserModel]?.firstOrNull() ?: throw BadRequestException("User not found")
-        val posts = postService.getUserPosts(redisEvent, userId)
+        val posts = postService.getUserPosts(redisEvent, userId, authorizedUser)
         val subscriptionsIds = subscribeService.getUserSubscriptions(redisEvent, userId)
 
+        val isSubscribed = if (authorizedUser != null) {
+            subscribeService.getUserSubscriptions(redisEvent, authorizedUser).contains(userId)
+        } else {
+            false
+        }
         val subscriptions = transaction(redisEvent) {
             this add UserModel.select(UserModel.id, UserModel.nickname).where { UserModel.id inList subscriptionsIds }
         }[UserModel] ?: listOf()
@@ -40,14 +45,15 @@ class ProfileService(di: DI) : FsmService(di) {
                 .map { (id, user) -> id to user.first()[UserModel.nickname] }
                 .toMap(),
             userData[UserModel.registrationDate],
-            posts
+            posts.reversed(),
+            isSubscribed
         )
     }
 
     suspend fun getProfile(redisEvent: RedisEvent) {
         val userId = redisEvent.parseData<FetchProfileDto>()?.id ?: throw BadRequestException("User not found")
 
-        val profile = getProfile(redisEvent, userId)
+        val profile = getProfile(redisEvent, userId, redisEvent.authorizedUser?.id)
 
         redisEvent.switchOnApi(profile)
     }
