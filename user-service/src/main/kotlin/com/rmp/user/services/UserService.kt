@@ -254,7 +254,6 @@ class UserService(di: DI): FsmService(di) {
         redisEvent.switchOnApi(UserCreateOutputDto(authUser.id))
     }
 
-
     private suspend fun checkNickname(redisEvent: RedisEvent, nick: String): Boolean {
         val user = newAutoCommitTransaction(redisEvent) {
             this add UserModel

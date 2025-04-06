@@ -73,7 +73,7 @@ class StepsService(di: DI): FsmService(di) {
         val authorizedUser = redisEvent.authorizedUser ?: throw ForbiddenException()
         val data = redisEvent.parseData<TargetCheckSupportDto>() ?: throw InternalServerException("Bad data provided")
 
-        val select = newTransaction(redisEvent) {
+        val select = transaction(redisEvent) {
             this add UserModel
                 .select(UserModel.stepsCount)
                 .where { UserModel.id eq authorizedUser.id }
@@ -82,7 +82,7 @@ class StepsService(di: DI): FsmService(di) {
         val steps = select[UserModel.stepsCount]
         data.result.steps = data.targets.third < steps
 
-        newAutoCommitTransaction(redisEvent) {
+        transaction(redisEvent) {
             this add UserStepsLogModel
                 .insert {
                     it[user] = authorizedUser.id
