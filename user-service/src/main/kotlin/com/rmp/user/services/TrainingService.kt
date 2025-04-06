@@ -22,6 +22,7 @@ import com.rmp.user.dto.trainings.types.TrainingsTypeListOutputDto
 import com.rmp.user.dto.trainings.types.TrainingsTypeOutputDto
 import org.kodein.di.DI
 import com.rmp.lib.utils.korm.column.inRange
+import com.rmp.lib.utils.korm.query.builders.OrderBy
 import com.rmp.user.dto.trainings.log.get.TrainingOutputDto
 import com.rmp.user.dto.trainings.log.get.TrainingsListOutputDto
 
@@ -131,6 +132,7 @@ class TrainingService(di: DI): FsmService(di) {
             )
                 .join(TrainingTypeModel, JoinType.INNER, TrainingTypeModel.id eq UserTrainingLogModel.type)
                 .join(TrainingIntensityModel, JoinType.INNER, TrainingIntensityModel.id eq UserTrainingLogModel.intensity)
+                .orderBy(UserTrainingLogModel.date, OrderBy.DESC)
                 .where {
                         (UserTrainingLogModel.user eq authorizedUser.id) and
                         (UserTrainingLogModel.date.inRange(start, end))
