@@ -32,9 +32,6 @@ class UserService(di: DI): FsmService(di) {
 
         checkEmail(redisEvent, data.email)
 
-//        redisEvent.switchOnApi(Response(true, "success"))
-//        return
-
         val select = newAutoCommitTransaction(redisEvent) {
             this add UserActivityLevelModel
                 .select(
@@ -134,15 +131,17 @@ class UserService(di: DI): FsmService(di) {
         return calories to water
     }
 
-    private suspend fun checkEmail(redisEvent: RedisEvent, email: String) {
-        val user = newAutoCommitTransaction(redisEvent) {
-            this add UserModel
-                .select(UserModel.id)
-                .where { UserModel.email eq  email}
-        }[UserModel]?.firstOrNull()
+    private suspend fun checkEmail(redisEvent: RedisEvent, email: String?) {
+        if (email != null) {
+            val user = newAutoCommitTransaction(redisEvent) {
+                this add UserModel
+                    .select(UserModel.id)
+                    .where { UserModel.email eq  email}
+            }[UserModel]?.firstOrNull()
 
-        if (user != null) {
-            throw DoubleRecordException("User already exists")
+            if (user != null) {
+                throw DoubleRecordException("User already exists")
+            }
         }
     }
 
@@ -151,6 +150,8 @@ class UserService(di: DI): FsmService(di) {
         val authUser = redisEvent.authorizedUser ?: throw ForbiddenException()
         val data = redisEvent.parseData<UserUpdateDto>() ?: throw BadRequestException("Invalid data provided")
         val userData = getUserInfo(redisEvent, authUser.id, false)
+
+        checkEmail(redisEvent, data.email)
 
         val activityTypeSelect = if (data.activityType != null) {
             newAutoCommitTransaction(redisEvent) {
