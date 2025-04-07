@@ -110,6 +110,7 @@ class MenuService(di: DI) : FsmService(di) {
     }
 
     suspend fun selectMenu(redisEvent: RedisEvent) {
+        val user = redisEvent.authorizedUser ?: throw ForbiddenException()
         val select = newAutoCommitTransaction(redisEvent) {
             this add UserMenuModel
                         .select(UserMenuModel.mealId, UserMenuModel.name)
@@ -121,10 +122,15 @@ class MenuService(di: DI) : FsmService(di) {
                         .join(DishModel)
                         .where { UserMenuItem.userId eq redisEvent.authorizedUser!!.id }
                         .named("select-menu-items")
+
+            this add UserModel
+                        .select(UserModel.caloriesTarget)
+                        .where { UserModel.id eq user.id }
         }
 
         val menu = select["select-menu"] ?: throw InternalServerException("Select failed")
         val menuItems = select["select-menu-items"] ?: throw InternalServerException("Select failed")
+        val targetCalories = select[UserModel]?.firstOrNull()?.get(UserModel.caloriesTarget) ?: throw InternalServerException("Select failed")
 
         val dishToMeal = menuItems.groupBy {
             it[UserMenuItem.mealId]
@@ -174,7 +180,8 @@ class MenuService(di: DI) : FsmService(di) {
         } ?: MealOutputDto(0, "", listOf(), MacronutrientsDto(0.0, 0.0, 0.0, 0.0))
 
         val menuOutputDto = MenuOutputDto(
-            meals = meals,
+            meals = if (meals.isEmpty()) null else meals,
+            targetCalories = targetCalories,
             params = params.let {
                 MacronutrientsDto(
                     it.params.calories,
@@ -184,8 +191,6 @@ class MenuService(di: DI) : FsmService(di) {
                 )
             }
         )
-
-        if (meals.isEmpty()) throw BadRequestException("Menu not generated")
 
         redisEvent.switchOnApi(menuOutputDto)
     }

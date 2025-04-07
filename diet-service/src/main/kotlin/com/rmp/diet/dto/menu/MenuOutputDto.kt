@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class MenuOutputDto (
-    val meals: List<MealOutputDto>,
+    val meals: List<MealOutputDto>? = null,
+    val targetCalories: Double,
     val params: MacronutrientsDto,
 ): SerializableClass
