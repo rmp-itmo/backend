@@ -3,9 +3,13 @@ package com.rmp.user.services
 import com.rmp.lib.exceptions.*
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.dto.CurrentCaloriesOutputDto
+import com.rmp.lib.shared.dto.DishDto
 import com.rmp.lib.shared.dto.DishLogCheckDto
 import com.rmp.lib.shared.dto.target.TargetUpdateLogDto
+import com.rmp.lib.shared.modules.dish.DishModel
+import com.rmp.lib.shared.modules.dish.UserMenuItem
 import com.rmp.lib.shared.modules.user.*
+import com.rmp.lib.utils.korm.Row
 import com.rmp.lib.utils.korm.column.Column
 import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.column.less
@@ -335,13 +339,32 @@ class UserService(di: DI): FsmService(di) {
             (currentCalories - data.calories).let { if (it < 0) 0.0 else it }
         }
 
-        autoCommitTransaction(redisEvent) {
+        val select = autoCommitTransaction(redisEvent) {
             this add UserModel.update(UserModel.id eq user.id) {
                 this[UserModel.caloriesCurrent] = newCalories
             }
+
+            this add UserMenuItem.select().join(DishModel, JoinType.LEFT, UserMenuItem.dishId eq DishModel.id )
+                .where { UserMenuItem.id eq data.menuItemId }
         }
 
-        redisEvent.switchOnApi(CurrentCaloriesOutputDto(newCalories))
+        redisEvent.switchOnApi(CurrentCaloriesOutputDto(dish = select[UserMenuItem]?.toDto()?.firstOrNull(), currentCalories))
+    }
+
+    private fun List<Row>.toDto(): List<DishDto> = map {
+        DishDto(
+            it[DishModel.id],
+            it[DishModel.name],
+            it[DishModel.description],
+            it[DishModel.imageUrl],
+            it[DishModel.portionsCount],
+            it[DishModel.calories],
+            it[DishModel.protein],
+            it[DishModel.fat],
+            it[DishModel.carbohydrates],
+            it[DishModel.cookTime],
+            it[DishModel.type],
+        )
     }
 
     private suspend fun countPercentage(redisEvent: RedisEvent, items: List<Pair<Column<Int>, Int>>, countAll: Long): Map<Column<Int>, Int> {
