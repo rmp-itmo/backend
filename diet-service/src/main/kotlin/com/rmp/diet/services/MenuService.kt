@@ -263,8 +263,7 @@ class MenuService(di: DI) : FsmService(di) {
 
         redisEvent.switchOnApi(CurrentCaloriesOutputDto(
             dish = select!!.toDto().first(),
-            calories = userData[UserModel.caloriesCurrent
-            ]))
+            calories = userData[UserModel.caloriesCurrent]))
     }
 
     suspend fun addMenuItem(redisEvent: RedisEvent) {

@@ -1,7 +1,7 @@
 package com.rmp.diet.services
 
 import com.rmp.diet.actions.dish.log.DishLogEventState
-import com.rmp.diet.dto.dish.DishDto
+import com.rmp.lib.shared.dto.DishDto
 import com.rmp.diet.dto.menu.MenuHistoryOutputDto
 import com.rmp.lib.shared.dto.DishLogCheckDto
 import com.rmp.diet.dto.water.get.WaterHistoryOutputDto

@@ -1,6 +1,6 @@
 package com.rmp.diet.dto.menu
 
-import com.rmp.diet.dto.dish.DishDto
+import com.rmp.lib.shared.dto.DishDto
 import com.rmp.lib.utils.redis.SerializableClass
 import kotlinx.serialization.Serializable
 
