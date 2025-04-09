@@ -2,7 +2,6 @@ package com.rmp.diet.services
 
 import com.rmp.diet.actions.dish.log.DishLogEventState
 import com.rmp.diet.dto.dish.CreateDishDto
-import com.rmp.diet.dto.dish.DishDto
 import com.rmp.diet.dto.menu.*
 import com.rmp.lib.exceptions.BadRequestException
 import com.rmp.lib.exceptions.InternalServerException
@@ -13,6 +12,7 @@ import com.rmp.lib.shared.modules.dish.UserMenuItem
 import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.dto.CurrentCaloriesOutputDto
+import com.rmp.lib.shared.dto.DishDto
 import com.rmp.lib.shared.dto.DishLogCheckDto
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.files.FilesUtil
@@ -20,6 +20,7 @@ import com.rmp.lib.utils.korm.Row
 import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.column.inList
 import com.rmp.lib.utils.korm.insert
+import com.rmp.lib.utils.korm.references.JoinType
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
 import org.kodein.di.DI
@@ -232,6 +233,7 @@ class MenuService(di: DI) : FsmService(di) {
     }
 
     private suspend fun returnUserCaloriesWithoutChange(redisEvent: RedisEvent) {
+        val removeMenuItemDto = redisEvent.parseData<RemoveMenuItemDto>() ?: throw BadRequestException("Bad dish create dto provided")
         val user = redisEvent.authorizedUser ?: throw ForbiddenException()
 
         val userData = autoCommitTransaction(redisEvent) {
@@ -240,7 +242,29 @@ class MenuService(di: DI) : FsmService(di) {
             }
         }[UserModel]?.firstOrNull() ?: throw InternalServerException("Failed to fetch user")
 
-        redisEvent.switchOnApi(CurrentCaloriesOutputDto(calories = userData[UserModel.caloriesCurrent]))
+        val select = autoCommitTransaction(redisEvent) {
+            this add UserMenuItem.select(
+                UserMenuItem.checked,
+                DishModel.id,
+                DishModel.name,
+                DishModel.description,
+                DishModel.imageUrl,
+                DishModel.portionsCount,
+                DishModel.calories,
+                DishModel.protein,
+                DishModel.fat,
+                DishModel.carbohydrates,
+                DishModel.cookTime,
+                DishModel.type,
+            )
+                .join(DishModel, JoinType.INNER, DishModel.id eq removeMenuItemDto.menuItemId)
+                .where { UserMenuItem.userId eq user.id }
+        }[UserMenuItem]
+
+        redisEvent.switchOnApi(CurrentCaloriesOutputDto(
+            dish = select!!.toDto().first(),
+            calories = userData[UserModel.caloriesCurrent
+            ]))
     }
 
     suspend fun addMenuItem(redisEvent: RedisEvent) {

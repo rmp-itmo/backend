@@ -3,9 +3,13 @@ package com.rmp.user.services
 import com.rmp.lib.exceptions.*
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.dto.CurrentCaloriesOutputDto
+import com.rmp.lib.shared.dto.DishDto
 import com.rmp.lib.shared.dto.DishLogCheckDto
 import com.rmp.lib.shared.dto.target.TargetUpdateLogDto
+import com.rmp.lib.shared.modules.dish.DishModel
+import com.rmp.lib.shared.modules.dish.UserMenuItem
 import com.rmp.lib.shared.modules.user.*
+import com.rmp.lib.utils.korm.Row
 import com.rmp.lib.utils.korm.column.Column
 import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.column.less
@@ -341,7 +345,42 @@ class UserService(di: DI): FsmService(di) {
             }
         }
 
-        redisEvent.switchOnApi(CurrentCaloriesOutputDto(newCalories))
+        val select = autoCommitTransaction(redisEvent) {
+            this add UserMenuItem.select(
+                UserMenuItem.checked,
+                DishModel.id,
+                DishModel.name,
+                DishModel.description,
+                DishModel.imageUrl,
+                DishModel.portionsCount,
+                DishModel.calories,
+                DishModel.protein,
+                DishModel.fat,
+                DishModel.carbohydrates,
+                DishModel.cookTime,
+                DishModel.type,
+            )
+                .join(DishModel, JoinType.INNER, DishModel.id eq data.menuItemId)
+                .where { UserMenuItem.userId eq user.id }
+        }[UserMenuItem]
+
+        redisEvent.switchOnApi(CurrentCaloriesOutputDto(dish = select!!.toDto().first(), currentCalories))
+    }
+
+    private fun List<Row>.toDto(): List<DishDto> = map {
+        DishDto(
+            it[DishModel.id],
+            it[DishModel.name],
+            it[DishModel.description],
+            it[DishModel.imageUrl],
+            it[DishModel.portionsCount],
+            it[DishModel.calories],
+            it[DishModel.protein],
+            it[DishModel.fat],
+            it[DishModel.carbohydrates],
+            it[DishModel.cookTime],
+            it[DishModel.type],
+        )
     }
 
     private suspend fun countPercentage(redisEvent: RedisEvent, items: List<Pair<Column<Int>, Int>>, countAll: Long): Map<Column<Int>, Int> {
