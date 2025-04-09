@@ -232,37 +232,24 @@ class MenuService(di: DI) : FsmService(di) {
             )
     }
 
-    private suspend fun returnUserCaloriesWithoutChange(redisEvent: RedisEvent) {
-        val removeMenuItemDto = redisEvent.parseData<RemoveMenuItemDto>() ?: throw BadRequestException("Bad dish create dto provided")
+    private suspend fun returnUserCaloriesWithoutChange(redisEvent: RedisEvent, menuItemId: Long) {
         val user = redisEvent.authorizedUser ?: throw ForbiddenException()
 
-        val userData = autoCommitTransaction(redisEvent) {
+        val select = autoCommitTransaction(redisEvent) {
             this add UserModel.select(UserModel.caloriesCurrent).where {
                 UserModel.id eq user.id
             }
-        }[UserModel]?.firstOrNull() ?: throw InternalServerException("Failed to fetch user")
 
-        val select = autoCommitTransaction(redisEvent) {
-            this add UserMenuItem.select(
-                UserMenuItem.checked,
-                DishModel.id,
-                DishModel.name,
-                DishModel.description,
-                DishModel.imageUrl,
-                DishModel.portionsCount,
-                DishModel.calories,
-                DishModel.protein,
-                DishModel.fat,
-                DishModel.carbohydrates,
-                DishModel.cookTime,
-                DishModel.type,
-            )
-                .join(DishModel, JoinType.INNER, DishModel.id eq removeMenuItemDto.menuItemId)
-                .where { UserMenuItem.userId eq user.id }
-        }[UserMenuItem]
+            this add UserMenuItem.select().join(DishModel, JoinType.LEFT, UserMenuItem.dishId eq DishModel.id )
+                .where { UserMenuItem.id eq menuItemId }
+        }
+
+        val userData = select[UserModel]?.firstOrNull() ?: throw InternalServerException("Failed to fetch user")
+
+        val dish = select[UserMenuItem] ?: throw InternalServerException("Failed to fetch dish")
 
         redisEvent.switchOnApi(CurrentCaloriesOutputDto(
-            dish = select!!.toDto().first(),
+            dish = if (dish.isEmpty()) null else dish.toDto().first(),
             calories = userData[UserModel.caloriesCurrent]))
     }
 
@@ -301,7 +288,7 @@ class MenuService(di: DI) : FsmService(di) {
 
 
         if (!addMenuItemDto.check) {
-            returnUserCaloriesWithoutChange(redisEvent)
+            returnUserCaloriesWithoutChange(redisEvent, log[UserMenuItem.id])
             return
         }
 
@@ -333,6 +320,6 @@ class MenuService(di: DI) : FsmService(di) {
             return
         }
 
-        returnUserCaloriesWithoutChange(redisEvent)
+        returnUserCaloriesWithoutChange(redisEvent, removeMenuItemDto.menuItemId)
     }
 }

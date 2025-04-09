@@ -1,6 +1,8 @@
 package com.rmp.user
 
 import com.rmp.lib.shared.conf.AppConf
+import com.rmp.lib.shared.modules.dish.DishModel
+import com.rmp.lib.shared.modules.dish.UserMenuItem
 import com.rmp.lib.shared.modules.training.TrainingIntensityModel
 import com.rmp.lib.shared.modules.training.TrainingTypeModel
 import com.rmp.lib.shared.modules.training.UserTrainingLogModel
@@ -81,7 +83,7 @@ fun main() {
         UserActivityLevelModel, UserSleepModel,
         UserHeartLogModel, UserStepsLogModel,
         UserAchievementsModel, TrainingTypeModel, TrainingIntensityModel,
-        UserTrainingLogModel
+        UserTrainingLogModel, UserMenuItem, DishModel
     )
 
     val router by kodein.instance<FsmRouter>()

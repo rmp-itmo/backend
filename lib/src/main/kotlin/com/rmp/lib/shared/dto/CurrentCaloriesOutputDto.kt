@@ -5,6 +5,6 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class CurrentCaloriesOutputDto (
-    val dish: DishDto,
+    val dish: DishDto? = null,
     val calories: Double
 ): SerializableClass

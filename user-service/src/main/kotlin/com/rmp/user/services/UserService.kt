@@ -339,32 +339,16 @@ class UserService(di: DI): FsmService(di) {
             (currentCalories - data.calories).let { if (it < 0) 0.0 else it }
         }
 
-        autoCommitTransaction(redisEvent) {
+        val select = autoCommitTransaction(redisEvent) {
             this add UserModel.update(UserModel.id eq user.id) {
                 this[UserModel.caloriesCurrent] = newCalories
             }
+
+            this add UserMenuItem.select().join(DishModel, JoinType.LEFT, UserMenuItem.dishId eq DishModel.id )
+                .where { UserMenuItem.id eq data.menuItemId }
         }
 
-        val select = autoCommitTransaction(redisEvent) {
-            this add UserMenuItem.select(
-                UserMenuItem.checked,
-                DishModel.id,
-                DishModel.name,
-                DishModel.description,
-                DishModel.imageUrl,
-                DishModel.portionsCount,
-                DishModel.calories,
-                DishModel.protein,
-                DishModel.fat,
-                DishModel.carbohydrates,
-                DishModel.cookTime,
-                DishModel.type,
-            )
-                .join(DishModel, JoinType.INNER, DishModel.id eq data.menuItemId)
-                .where { UserMenuItem.userId eq user.id }
-        }[UserMenuItem]
-
-        redisEvent.switchOnApi(CurrentCaloriesOutputDto(dish = select!!.toDto().first(), currentCalories))
+        redisEvent.switchOnApi(CurrentCaloriesOutputDto(dish = select[UserMenuItem]?.toDto()?.firstOrNull(), currentCalories))
     }
 
     private fun List<Row>.toDto(): List<DishDto> = map {
