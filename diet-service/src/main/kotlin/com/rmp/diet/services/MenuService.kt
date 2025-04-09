@@ -2,7 +2,6 @@ package com.rmp.diet.services
 
 import com.rmp.diet.actions.dish.log.DishLogEventState
 import com.rmp.diet.dto.dish.CreateDishDto
-import com.rmp.diet.dto.dish.DishDto
 import com.rmp.diet.dto.menu.*
 import com.rmp.lib.exceptions.BadRequestException
 import com.rmp.lib.exceptions.InternalServerException
@@ -13,6 +12,7 @@ import com.rmp.lib.shared.modules.dish.UserMenuItem
 import com.rmp.lib.exceptions.ForbiddenException
 import com.rmp.lib.shared.conf.AppConf
 import com.rmp.lib.shared.dto.CurrentCaloriesOutputDto
+import com.rmp.lib.shared.dto.DishDto
 import com.rmp.lib.shared.dto.DishLogCheckDto
 import com.rmp.lib.shared.modules.user.UserModel
 import com.rmp.lib.utils.files.FilesUtil
@@ -20,6 +20,7 @@ import com.rmp.lib.utils.korm.Row
 import com.rmp.lib.utils.korm.column.eq
 import com.rmp.lib.utils.korm.column.inList
 import com.rmp.lib.utils.korm.insert
+import com.rmp.lib.utils.korm.references.JoinType
 import com.rmp.lib.utils.redis.RedisEvent
 import com.rmp.lib.utils.redis.fsm.FsmService
 import org.kodein.di.DI
@@ -231,16 +232,25 @@ class MenuService(di: DI) : FsmService(di) {
             )
     }
 
-    private suspend fun returnUserCaloriesWithoutChange(redisEvent: RedisEvent) {
+    private suspend fun returnUserCaloriesWithoutChange(redisEvent: RedisEvent, menuItemId: Long) {
         val user = redisEvent.authorizedUser ?: throw ForbiddenException()
 
-        val userData = autoCommitTransaction(redisEvent) {
+        val select = autoCommitTransaction(redisEvent) {
             this add UserModel.select(UserModel.caloriesCurrent).where {
                 UserModel.id eq user.id
             }
-        }[UserModel]?.firstOrNull() ?: throw InternalServerException("Failed to fetch user")
 
-        redisEvent.switchOnApi(CurrentCaloriesOutputDto(calories = userData[UserModel.caloriesCurrent]))
+            this add UserMenuItem.select().join(DishModel, JoinType.LEFT, UserMenuItem.dishId eq DishModel.id )
+                .where { UserMenuItem.id eq menuItemId }
+        }
+
+        val userData = select[UserModel]?.firstOrNull() ?: throw InternalServerException("Failed to fetch user")
+
+        val dish = select[UserMenuItem] ?: throw InternalServerException("Failed to fetch dish")
+
+        redisEvent.switchOnApi(CurrentCaloriesOutputDto(
+            dish = if (dish.isEmpty()) null else dish.toDto().first(),
+            calories = userData[UserModel.caloriesCurrent]))
     }
 
     suspend fun addMenuItem(redisEvent: RedisEvent) {
@@ -278,7 +288,7 @@ class MenuService(di: DI) : FsmService(di) {
 
 
         if (!addMenuItemDto.check) {
-            returnUserCaloriesWithoutChange(redisEvent)
+            returnUserCaloriesWithoutChange(redisEvent, log[UserMenuItem.id])
             return
         }
 
@@ -310,6 +320,6 @@ class MenuService(di: DI) : FsmService(di) {
             return
         }
 
-        returnUserCaloriesWithoutChange(redisEvent)
+        returnUserCaloriesWithoutChange(redisEvent, removeMenuItemDto.menuItemId)
     }
 }

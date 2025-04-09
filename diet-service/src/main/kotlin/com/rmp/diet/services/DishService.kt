@@ -1,6 +1,6 @@
 package com.rmp.diet.services
 
-import com.rmp.diet.dto.dish.DishDto
+import com.rmp.lib.shared.dto.DishDto
 import com.rmp.diet.dto.dish.DishFilterDto
 import com.rmp.diet.dto.dish.DishListDto
 import com.rmp.diet.dto.dish.service.SIMPLEDishCreate
